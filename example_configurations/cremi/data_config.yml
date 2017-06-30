@@ -1,0 +1,74 @@
+# Specify the names of the datasets
+dataset_names:
+  - A
+  - B
+  - C
+
+# Specify how the data needs to be sliced before feeding to the network.
+# We use a 3D sliding window over the dataset to extract patches, which
+# are then fed to the network as batches.
+slicing_config:
+  # Sliding window size
+  window_size:
+    A: null
+    B: null
+    C: null
+  # Sliding window stride
+  stride:
+    A: null
+    B: null
+    C: null
+  # Sliding window downsampling ratio. The actual image size along a
+  # dimension is the window_size divided by the downsampling ratio.
+  # Example:
+  #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
+  #   slice shape = [1, 256, 256]
+  downsampling_ratio:
+    A: null
+    B: null
+    C: null
+  # Reflect padding on the loaded volume. Follows numpy.pad semantics.
+  padding:
+    A: null
+    B: null
+    C: null
+  # Data slice to iterate over.
+  data_slice:
+    A: null
+    B: null
+    C: null
+
+# Specify paths to volumes
+volume_config:
+  # Raw data
+  raw:
+    path:
+      A: null
+      B: null
+      C: null
+    # CREMI default is '/volumes/raw'
+    path_in_h5_dataset:
+      A: null
+      B: null
+      C: null
+
+  # Membranes
+  membranes:
+    path:
+      A: null
+      B: null
+      C: null
+    # CREMI default is '/volumes/labels/neuron_ids'
+    path_in_h5_dataset:
+      A: null
+      B: null
+      C: null
+
+# Specify configuration for the loader
+loader_config:
+  # Number of processes to use for loading data. Set to (say) 10 if you wish to
+  # use 10 CPU cores, or to 0 if you wish to use the same process for training and
+  # data-loading (generally not recommended).
+  num_workers: null
+  batch_size: null
+

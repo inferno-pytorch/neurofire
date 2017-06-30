@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.ndimage import convolve
-from inferno.io.transform.base import Transform
+from scipy.ndimage.morphology import distance_transform_edt
+from inferno.io.transform import Transform
 
 
 class Segmentation2Membranes(Transform):
@@ -16,7 +17,17 @@ class Segmentation2Membranes(Transform):
         assert dtype in self.DTYPE_MAPPING.keys()
         self.dtype = self.DTYPE_MAPPING.get(dtype)
 
-    def image_funtion(self, image):
+    def image_function(self, image):
         gx = convolve(np.float32(image), np.array([-1., 0., 1.]).reshape(1, 3))
         gy = convolve(np.float32(image), np.array([-1., 0., 1.]).reshape(3, 1))
         return getattr(np, self.dtype)((gx ** 2 + gy ** 2) > 0)
+
+
+class NegativeExponentialDistanceTransform(Transform):
+    def __init__(self, gain=1., **super_kwargs):
+        super(NegativeExponentialDistanceTransform, self).__init__(**super_kwargs)
+        self.gain = gain
+
+    def image_function(self, image):
+        image = 1. - image
+        return np.exp(-self.gain * distance_transform_edt(image))
