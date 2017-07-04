@@ -16,8 +16,7 @@ class TestMaster(unittest.TestCase):
         # Validate
         self.assertEqual(len(batch), 2)
         for _batch in batch:
-            import ipdb; ipdb.set_trace()
-            self.assertEqual(list(_batch.size()), [1, 576, 576]) # batch axis added by loader
+            self.assertEqual(list(_batch.size()), [1, 576, 576])    # batch axis added by loader
         # Print to file
         if os.path.exists(self.PLOT_DIRECTORY):
             assert os.path.isdir(self.PLOT_DIRECTORY)

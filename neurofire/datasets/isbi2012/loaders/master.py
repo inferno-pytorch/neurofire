@@ -1,4 +1,4 @@
-from inferno.io.core import Zip, Concatenate
+from inferno.io.core import Zip
 from inferno.io.transform import Compose
 from inferno.io.transform.generic import AsTorchBatch
 from inferno.io.transform.volume import RandomFlip3D
@@ -33,7 +33,7 @@ class ISBI2012Dataset(Zip):
     def get_transforms(self):
         transforms = Compose(RandomFlip3D(),
                              RandomRotate(),
-                             ElasticTransform(alpha=2000., sigma=50.), # Hard coded for now
+                             ElasticTransform(alpha=2000., sigma=50.),  # Hard coded for now
                              AsTorchBatch(3))
         return transforms
 
