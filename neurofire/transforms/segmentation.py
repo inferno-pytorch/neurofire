@@ -24,10 +24,14 @@ class Segmentation2Membranes(Transform):
 
 
 class NegativeExponentialDistanceTransform(Transform):
-    def __init__(self, gain=1., **super_kwargs):
+    def __init__(self, gain=1., invert=True, **super_kwargs):
         super(NegativeExponentialDistanceTransform, self).__init__(**super_kwargs)
+        self.invert = invert
         self.gain = gain
 
     def image_function(self, image):
-        image = 1. - image
-        return np.exp(-self.gain * distance_transform_edt(image))
+        if self.invert:
+            image = 1. - image
+            return np.exp(-self.gain * distance_transform_edt(image))
+        else:
+            return -np.exp(-self.gain * distance_transform_edt(image))
