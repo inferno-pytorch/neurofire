@@ -317,7 +317,7 @@ class CantorModule(Graph):
         self.add_node('l3s0', L3SA(self.base_width))
         self.add_node('l2s0', L2SA(self.base_width))
         self.add_node('l1s0', L1SA(self.base_width))
-        self.add_edge('l0s0', L0SA(self.base_width))
+        self.add_node('l0s0', L0SA(self.base_width))
         # Add stage 0 edges
         self.add_edge('l3i3', 'l3s0')
         self.add_edge('l2i3', 'l2s0')
@@ -325,7 +325,7 @@ class CantorModule(Graph):
         self.add_edge('l1i2', 'l1s0')
         self.add_edge('l1i1', 'l1s0')
         self.add_edge('l0i1', 'l0s0')
-        self.add_edge('l0i0', 'l9s0')
+        self.add_edge('l0i0', 'l0s0')
 
         # Stage 1
         # Add stage 1 nodes
@@ -453,23 +453,38 @@ class CantorTerminator(Graph):
         self.add_input_node('l0i1')
         self.add_input_node('l0i0')
 
-        # Add nodes
+        # Add stage 0 nodes
+        self.add_node('l3s0', L3SA(self.base_width))
+        self.add_node('l2s0', L2SA(self.base_width))
+        self.add_node('l1s0', L1SA(self.base_width))
+        self.add_node('l0s0', L0SA(self.base_width))
+        # Add stage 0 edges
+        self.add_edge('l3i3', 'l3s0')
+        self.add_edge('l2i3', 'l2s0')
+        self.add_edge('l2i2', 'l2s0')
+        self.add_edge('l1i2', 'l1s0')
+        self.add_edge('l1i1', 'l1s0')
+        self.add_edge('l0i1', 'l0s0')
+        self.add_edge('l0i0', 'l0s0')
+
+        # Add exit nodes
         self.add_node('l3sy', L3SY(self.base_width))
         self.add_node('l2sy', L2SY(self.base_width))
         self.add_node('l1sy', L1SY(self.base_width))
-        self.add_node('l0sy', L0SY(out_channels, self.base_width))
+        self.add_node('l0sy', L0SY(out_channels, self.base_width,
+                                   activation=activation))
 
         # Add edges
-        self.add_edge('l3i3', 'l3sy')
-        self.add_edge('l2i3', 'l3sy')
+        self.add_edge('l3s0', 'l3sy')
+        self.add_edge('l2s0', 'l3sy')
         self.add_edge('l3sy', 'l2sy')
-        self.add_edge('l2i2', 'l2sy')
-        self.add_edge('l1i2', 'l2sy')
+        self.add_edge('l2s0', 'l2sy')
+        self.add_edge('l1s0', 'l2sy')
         self.add_edge('l2sy', 'l1sy')
-        self.add_edge('l1i1', 'l1sy')
-        self.add_edge('l0i1', 'l1sy')
+        self.add_edge('l1s0', 'l1sy')
+        self.add_edge('l0s0', 'l1sy')
         self.add_edge('l1sy', 'l0sy')
-        self.add_edge('l0i0', 'l0sy')
+        self.add_edge('l0s0', 'l0sy')
 
         # Add output
         self.add_output_node('output', previous='l0sy')
