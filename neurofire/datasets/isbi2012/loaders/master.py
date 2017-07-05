@@ -34,7 +34,7 @@ class ISBI2012Dataset(Zip):
         transforms = Compose(RandomFlip3D(),
                              RandomRotate(),
                              ElasticTransform(alpha=2000., sigma=50.),  # Hard coded for now
-                             AsTorchBatch(3))
+                             AsTorchBatch(2))
         return transforms
 
     @classmethod
