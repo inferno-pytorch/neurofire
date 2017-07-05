@@ -2,6 +2,7 @@ import unittest
 
 
 class TestCantor(unittest.TestCase):
+
     def test_cantor_initiator(self):
         import torch
         from torch.autograd import Variable
@@ -65,7 +66,20 @@ class TestCantor(unittest.TestCase):
         # Validate
         self.assertEqual(list(output.size()), [1, 1, 128, 128])
 
+    def test_cantor(self):
+        import torch
+        from torch.autograd import Variable
+        import neurofire.models.cantor as cantor
+
+        input_shape = [1, 1, 3, 128, 128]
+        model = cantor.Cantor.from_shape(input_shape=input_shape,
+                                         base_width=30,
+                                         num_modules=3,
+                                         output_activation='Sigmoid')
+        input = Variable(torch.rand(*input_shape))
+        output = model(input)
+        self.assertEqual(list(output.size()), input_shape)
 
 if __name__ == '__main__':
-    TestCantor().test_cantor_terminator()
+    unittest.main([__file__])
 

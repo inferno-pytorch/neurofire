@@ -3,6 +3,7 @@ import inferno.extensions.layers.convolutional as conv
 import inferno.extensions.layers.reshape as shape
 from inferno.extensions.containers.graph import Graph
 from inferno.extensions.containers.sequential import Sequential2
+from .base import Model
 
 
 # Presets
@@ -490,9 +491,29 @@ class CantorTerminator(Graph):
         self.add_output_node('output', previous='l0sy')
 
 
-class Cantor(Sequential2):
+class Cantor(Sequential2, Model):
+    """Construct a Cantor network."""
     def __init__(self, in_channels, out_channels, base_width, num_modules,
                  output_activation='Sigmoid', dim=3):
+        """
+        Parameters
+        ----------
+        in_channels : int
+            Number of input channels to the __2D__ layer - for 3D inputs, this is the number
+            of input channels times the number of slices. For example if the input shape is
+            [1, 2, 3, 512, 512], in_channels = 2 * 3 = 6.
+        out_channels : int
+            Number of output channels from the __2D__ layer. For 3D inputs, this is the number
+            of z slices, i.e. multi-channel 3D outputs is not supported.
+        base_width : int
+            Number of units in the lower-most (i.e. highest resolution) level.
+        num_modules : int
+            Number of cantor blocks. Does not include the initiator and terminator.
+        output_activation : {'Sigmoid', 'Softmax', None}
+            Output activation,
+        dim : {2, 3}
+            Dimensionality of the input and output.
+        """
         assert dim in [2, 3]
         modules = ([shape.As2D(z_as_channel=True)] if dim == 3 else []) + \
                    [CantorInitiator(in_channels, base_width)] + \
@@ -500,3 +521,33 @@ class Cantor(Sequential2):
                    [CantorTerminator(out_channels, base_width, activation=output_activation)] + \
                   ([shape.As3D(channel_as_z=True)] if dim == 3 else [])
         super(Cantor, self).__init__(*modules)
+
+    @classmethod
+    def from_shape(cls, input_shape, base_width, num_modules, output_activation='Sigmoid',
+                   output_shape=None):
+        # Check if 2D or 3D
+        if len(input_shape) == 5:
+            num_input_channels = input_shape[1]
+            num_z_slices = input_shape[2]
+            assert None not in [num_input_channels, num_z_slices]
+            in_channels = num_input_channels * num_z_slices
+            out_channels = num_z_slices
+            if output_shape is not None:
+                assert len(output_shape) == 5
+                assert output_shape[1] == 1
+                assert output_shape[2] == num_z_slices
+            return cls(in_channels, out_channels, base_width,
+                       num_modules, output_activation, dim=3)
+        elif len(input_shape) == 4:
+            assert output_shape is not None
+            in_channels = input_shape[1]
+            out_channels = output_shape[1]
+            assert None not in [in_channels, out_channels]
+            return cls(in_channels, out_channels, base_width,
+                       num_modules, output_activation, dim=2)
+        else:
+            raise NotImplementedError
+
+    @classmethod
+    def from_config(cls, **config):
+        return cls.from_shape(**config)
