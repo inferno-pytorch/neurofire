@@ -1,0 +1,3 @@
+[submodule "neurofire/criteria/malis/malis_impl/nifty"]
+	path = neurofire/criteria/malis/malis_impl/nifty
+	url = https://github.com/DerThorsten/nifty.git

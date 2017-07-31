@@ -1,1 +1,1 @@
-from src import malis_impl
+from bld import malis_impl

@@ -1,5 +1,7 @@
 from torch.autograd import Function
 
+from malis_impl import malis_impl
+
 
 # Inherit from Function:
 # https://github.com/pytorch/pytorch/blob/master/torch/autograd/function.py#L123
