@@ -1,0 +1,31 @@
+# Specify the names of the datasets
+dataset_names:
+  - ISBI_TRAIN
+
+# TODO loads of config 
+
+    
+# Specify paths to volumes
+volume_config:
+  # Raw data
+  raw:
+    path:
+      ISBI_TRAIN: '/home/papec/Work/neurodata_hdd/isbi12/train-volume.h5'
+    path_in_h5_dataset:
+      ISBI_TRAIN: 'data'
+
+  # Membranes
+  membranes:
+    path:
+      ISBI_TRAIN: '/home/papec/Work/neurodata_hdd/isbi12/train-labels.h5'
+    path_in_h5_dataset:
+      ISBI_TRAIN: 'data'
+
+# Specify configuration for the loader
+loader_config:
+  # Number of processes to use for loading data. Set to (say) 10 if you wish to
+  # use 10 CPU cores, or to 0 if you wish to use the same process for training and
+  # data-loading (generally not recommended).
+  num_workers: null
+  batch_size: null
+
