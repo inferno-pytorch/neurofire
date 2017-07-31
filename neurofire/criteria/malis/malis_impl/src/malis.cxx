@@ -8,9 +8,9 @@ namespace malis_impl {
 }
 
 
-PYBIND11_PLUGIN(_malis) {
-    
-    py::module malisModule("_malis", "C++ implementation of malis loss");
+PYBIND11_PLUGIN(_malis_impl) {
+
+    py::module malisModule("_malis_impl", "C++ implementation of malis loss");
 
     using namespace malis_impl;
 

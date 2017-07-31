@@ -23,8 +23,8 @@ namespace malis_impl {
             ) {
 
                 // shape of affinities
-                std::vector<int64_t> shape(DIM);
-                for(size_t d = 0; d < DIM; ++d) {
+                std::vector<int64_t> shape(DIM+1);
+                for(size_t d = 0; d < DIM+1; ++d) {
                     shape[d] = affinities.shape(d);
                 }
 
