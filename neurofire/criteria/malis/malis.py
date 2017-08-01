@@ -1,6 +1,6 @@
 from torch.autograd import Function
 
-from malis_impl import malis_impl
+from malis_impl import malis_impl, constrained_malis_impl
 
 # malis loss and cpp impl adapted from:
 # https://github.com/naibaf7/caffe/blob/master/include/caffe/layers/malis_loss_layer.hpp
@@ -42,7 +42,6 @@ class MalisLoss(Function):
         )
 
         # next, compute the negative loss and gradients
-        # TODO for constrained malis, we need to somehow restrict the segmentation here
         neg_gradients, neg_loss, _, _ = malis_impl(
             affinities, groundtruth, False
         )
@@ -54,6 +53,38 @@ class MalisLoss(Function):
 
         # return the combined loss
         return (neg_loss + pos_loss) / 2.
+
+    def backward(self, grad_output):
+        """
+        Apply malis backward pass to get the gradients.
+        """
+
+        gradients, = self.saved_tensors
+        return gradients
+
+
+class ConstrainedMalisLoss(Function):
+    """
+    Constrained Malis Loss
+    """
+
+    def forward(self, affinities, groundtruth):
+        """
+        Apply constrained malis forward pass to get the loss.
+
+        Parameters
+        ----------
+        affinities : torch.Variable wrapping the affinity tensor
+        groundtruth : torch.Variable wrapping the groundtruth tensor
+
+        Returns
+        -------
+        loss: malis loss
+        """
+
+        gradients, loss = constrained_malis_impl(affinities, groundtruth)
+        self.save_for_backward(-gradients / 2.)
+        return loss
 
     def backward(self, grad_output):
         """

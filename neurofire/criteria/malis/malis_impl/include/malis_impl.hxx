@@ -97,13 +97,13 @@ void compute_malis_gradient(
 
     // sort pqueue in increasing order
     std::sort(pqueue.begin(), pqueue.end(), [&flatView](const size_t ind1, const size_t ind2){
-        return (flatView(ind1)>flatView(ind2));
+        return (flatView(ind1) > flatView(ind2));
     });
 
     // 3.) Run kruskal - for each min spanning tree edge,
     // we compute the loss and gradient
 
-    size_t edgeIndex, channel;
+    size_t axis;
     LabelType setU, setV;
     size_t nPair = 0, nPairIncorrect = 0 ;
     double loss = 0, gradient = 0;
@@ -116,7 +116,7 @@ void compute_malis_gradient(
     for(auto edgeIndex : pqueue) {
 
         // translate edge index to coordinate
-        affCoord[0] = edgeIndex / affinities.strides(0) ;
+        affCoord[0] = edgeIndex / affinities.strides(0);
         for(int d = 1; d < DIM+1; ++d) {
             affCoord[d] = (edgeIndex % affinities.strides(d-1) ) / affinities.strides(d);
         }
@@ -127,12 +127,18 @@ void compute_malis_gradient(
             gtCoordV[d] = affCoord[d];
         }
 
-        // we increase the V coordinate for the given channel (=corresponding coordinate)
-        // only if this results in a valid coordinate
-        channel = affCoord[DIM];
-        if(gtCoordV[channel] < pixelShape[channel] - 1) {
-            ++gtCoordV[affCoord[DIM]];
+        axis = affCoord[DIM];
+
+        // convention: edges encode the affinty to lower coordinates
+        if(gtCoordV[axis] > 0) {
+            --gtCoordV[axis];
         }
+
+        // convention: edges encode the affinty to higher coordinates
+        //if(gtCoordV[axis] < pixelShape[axis] - 1) {
+        //    ++gtCoordV[axis];
+        //}
+
         else {
             continue;
         }
@@ -152,7 +158,7 @@ void compute_malis_gradient(
                     // number of pix associated with U times pix associated with V
                     nPair = itU->second * itV->second;
 
-                    // for pos, TODO 
+                    // for pos:
                     // we add nPairs if we join two nodes in the same gt segment
                     if (pos && (itU->first == itV->first)) {
                         affinity = affinities(affCoord.asStdArray());
@@ -167,7 +173,7 @@ void compute_malis_gradient(
                         }
                     }
 
-                    // for !pos, TODO
+                    // for !pos:
                     // we add nPairs if we join two nodes in different gt segments
                     else if (!pos && (itU->first != itV->first)) {
                         affinity = affinities(affCoord.asStdArray());
@@ -224,6 +230,120 @@ void compute_malis_gradient(
     // return the classification error and rand index
     classificationErrorOut = static_cast<DATA_TYPE>(nPairIncorrect) / static_cast<DATA_TYPE>(nPairNorm);
     randIndexOut = 1. - static_cast<DATA_TYPE>(nPairIncorrect) / static_cast<DATA_TYPE>(nPairNorm);
+
+}
+
+
+template<unsigned DIM, typename DATA_TYPE, typename LABEL_TYPE>
+void compute_constrained_malis_gradient(
+    const nifty::marray::View<DATA_TYPE> & affinities,
+    const nifty::marray::View<LABEL_TYPE> & groundtruth,
+    nifty::marray::View<DATA_TYPE> & gradientsOut,
+    DATA_TYPE & lossOut
+) {
+
+    typedef nifty::array::StaticArray<int64_t,DIM>   Coord;
+    typedef nifty::array::StaticArray<int64_t,DIM+1> AffinityCoord;
+    typedef LABEL_TYPE LabelType;
+    typedef DATA_TYPE DataType;
+
+    AffinityCoord affShape;
+    for(int d = 0; d < DIM + 1; ++d) {
+        affShape[d] = affinities.shape(d);
+    }
+
+    Coord pixelShape;
+    for(int d = 0; d < DIM; ++d) {
+        pixelShape[d] = groundtruth.shape(d);
+    }
+
+    // construct the affinities for negative and positive pass on the fly
+    nifty::marray::Marray<DataType> affinitiesPos(affShape.begin(), affShape.end());
+    nifty::marray::Marray<DataType> affinitiesNeg(affShape.begin(), affShape.end());
+    const int numberOfEdges = affinities.size();  // the number of edges corresponds to the number of affinities
+
+    size_t axis;
+    Coord gtCoordU, gtCoordV;
+    AffinityCoord affCoord;
+    LabelType labelU, labelV;
+    DataType affinity;
+
+    // we iterate over all the edges, constructing the affinity values for positive and negative pass
+    // the positive affinities are set to min(affinities, gtAffinities)
+    // the negative affinities are set to max(affinities, gtAffinities)
+    // gtAffinities are 0 for invalid edges, edges with different node labels or edges which have an ignore label in their associated node labels
+    // they are 1 otherwise (same node label, which is not ignore or invalid edge)
+    // this can be simplified a bit by only calculating the gtAffinity implcitly and setting
+    // affintyPos = 0., affinityNeg = affinity if gtAffinity would be 0
+    // affintyPos = affinity, affinityNeg = 1. if gtAffinity would be 1
+    for(size_t edgeIndex = 0; edgeIndex < numberOfEdges; edgeIndex++) {
+
+        // translate edge index to coordinate
+        affCoord[0] = edgeIndex / affinities.strides(0);
+        for(int d = 1; d < DIM+1; ++d) {
+            affCoord[d] = (edgeIndex % affinities.strides(d-1) ) / affinities.strides(d);
+        }
+        affinity = affinities(affCoord.asStdArray());
+
+        // first, we copy the spatial coordinates of the affinity pixel for both gt coords
+        for(int d = 0; d < DIM; ++d) {
+            gtCoordU[d] = affCoord[d];
+            gtCoordV[d] = affCoord[d];
+        }
+
+        // we change the V coordinate for the given axis (=corresponding coordinate)
+        // only if this results in a valid coordinate
+        axis = affCoord[DIM];
+
+        // convention: edges encode the affinty to lower coordinates
+        if(gtCoordV[axis] > 0) {
+            --gtCoordV[axis];
+        }
+
+        // convention: edges encode the affinty to higher coordinates
+        //if(gtCoordV[axis] < pixelShape[axis] - 1) {
+        //    ++gtCoordV[axis];
+        //}
+
+        else {
+            // the edge is invalid -> gtAffinity would be 0
+            affinitiesPos(affCoord.asStdArray()) = 0.;
+            affinitiesNeg(affCoord.asStdArray()) = affinity;
+            continue;
+        }
+
+
+        labelU = groundtruth(gtCoordU.asStdArray());
+        labelV = groundtruth(gtCoordV.asStdArray());
+        if(labelU != labelV || labelU == 0 || labelV == 0) {
+            // gtAffinity would be 0
+            affinitiesPos(affCoord.asStdArray()) = 0.;
+            affinitiesNeg(affCoord.asStdArray()) = affinity;
+        }
+        else {
+            // gtAffinity would be 1
+            affinitiesPos(affCoord.asStdArray()) = affinity;
+            affinitiesNeg(affCoord.asStdArray()) = 1.;
+        }
+
+    }
+
+    // TODO if we want to weight pos and neg differently, we need to pass a corresponding factor
+    // to compute malis loss
+    // calculate the gradients
+    // note that gradients are added in-place to gradientsOut
+
+    // calculate the positive malis gradients
+    DataType lossPos, rand, classErr;
+    compute_malis_gradient<DIM>(
+        affinitiesPos, groundtruth, true, gradientsOut, lossPos, classErr, rand
+    );
+
+    // calculate the negative malis gradients
+    DataType lossNeg;
+    compute_malis_gradient<DIM>(
+        affinitiesNeg, groundtruth, false, gradientsOut, lossNeg, classErr, rand
+    );
 
 }
 
