@@ -54,9 +54,11 @@ class MalisTest(unittest.TestCase):
 
         # run constrained malis impl
         t_malis_impl = time.time()
-        gradinets_malis_impl, loss = constrained_malis_impl(affinities, groundtruth)
+        gradients_malis_impl, loss = constrained_malis_impl(affinities, groundtruth)
+        gradients_malis_impl *= -1
+        gradients_malis_impl / 2.
         print("Runtime for constrained malis_impl:", time.time() - t_malis_impl)
-        self.assertEqual(affinities.shape, gradinets_malis_impl.shape)
+        self.assertEqual(affinities.shape, gradients_malis_impl.shape)
 
         if True:
             # run constrained malis from pymalis and compare with malis imple output
@@ -69,7 +71,7 @@ class MalisTest(unittest.TestCase):
             self.assertEqual(gradients_pymalis.shape, affinities.shape)
 
             gradients_pymalis = gradients_pymalis.transpose((1, 2, 3, 0))
-            diff = np.isclose(gradinets_malis_impl, gradients_pymalis, rtol=1e-2)
+            diff = np.isclose(gradients_malis_impl, gradients_pymalis, rtol=1e-2)
             print("Number of equal entries:", np.sum(diff))
             print("                       /", diff.size)
             print("Corresponding to a", np.sum(diff) / diff.size, "% match")
