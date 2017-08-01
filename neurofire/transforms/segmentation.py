@@ -33,5 +33,6 @@ class NegativeExponentialDistanceTransform(Transform):
         if self.invert:
             image = 1. - image
             return np.exp(-self.gain * distance_transform_edt(image))
-        else: # for ISBI the labels are inverted
+        else:
+            # for ISBI the labels are inverted
             return 1-np.exp(-self.gain * distance_transform_edt(image))

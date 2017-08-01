@@ -1,0 +1,40 @@
+# Specify how the data needs to be sliced before feeding to the network.
+# We use a 3D sliding window over the dataset to extract patches, which
+# are then fed to the network as batches.
+slicing_config:
+  # Sliding window size (see padding)
+  window_size: [1, 576, 576]
+  # Sliding window stride
+  stride: [1, 1, 1]
+  # Sliding window downsampling ratio. The actual image size along a
+  # dimension is the window_size divided by the downsampling ratio.
+  # Example:
+  #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
+  #   slice shape = [1, 256, 256]
+  downsampling_ratio: [1, 1, 1]
+  # Reflect padding on the loaded volume. Follows numpy.pad semantics.
+  padding: [[0, 0], [32, 32], [32, 32]]
+
+# Specify paths to volumes
+volume_config:
+  # Raw data
+  raw:
+    path: '/path/to/train-volume.tif'
+    # Specify training precision
+    dtype: float32
+  # Membranes
+  membranes:
+    path: '/path/to/train-labels.tif'
+    # Specify training precision
+    dtype: float32
+    # Gain for the negative exponential distance transform
+    nedt_gain: 0.5
+
+loader_config:
+  batch_size: 1
+  shuffle: True
+  # Set this to the number of processes you want to use for data-preprocessing
+  # = 0 implies that the training and preprocessing happens in the same process.
+  num_workers: 0
+  drop_last: False
+  pin_memory: True

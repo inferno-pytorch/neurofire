@@ -23,7 +23,7 @@ class ISBI2012Dataset(Zip):
         membrane_volume_kwargs = dict(volume_config.get('membranes'))
         membrane_volume_kwargs.update(slicing_config)
         # Build volumes
-        self.raw_volume      = RawVolume(**raw_volume_kwargs)
+        self.raw_volume = RawVolume(**raw_volume_kwargs)
         self.membrane_volume = MembraneVolume(**membrane_volume_kwargs)
         # Initialize zip
         super(ISBI2012Dataset, self).__init__(self.raw_volume, self.membrane_volume, sync=True)
@@ -40,7 +40,7 @@ class ISBI2012Dataset(Zip):
     @classmethod
     def from_config(cls, config):
         config = yaml2dict(config)
-        volume_config  = config.get('volume_config')
+        volume_config = config.get('volume_config')
         slicing_config = config.get('slicing_config')
         return cls(volume_config=volume_config, slicing_config=slicing_config)
 
