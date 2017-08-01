@@ -1,7 +1,3 @@
-# Specify the names of the datasets
-dataset_names:
-  - ISBI_TRAIN
-
 # Specify how the data needs to be sliced before feeding to the network.
 # We use a 3D sliding window over the dataset to extract patches, which
 # are then fed to the network as batches.
@@ -24,23 +20,16 @@ slicing_config:
 volume_config:
   # Raw data
   raw:
-    path:
-      ISBI_TRAIN: '/home/papec/Work/neurodata_hdd/isbi12/train-volume.h5'
-    path_in_h5_dataset:
-      ISBI_TRAIN: 'data'
-    dtype:
-      ISBI_TRAIN: float32
+    path: '/home/papec/Work/neurodata_hdd/isbi12/train-volume.h5'
+    path_in_h5_dataset: 'data'
+    dtype: float32
 
   # Membranes
   membranes:
-    path:
-      ISBI_TRAIN: '/home/papec/Work/neurodata_hdd/isbi12/train-labels.h5'
-    path_in_h5_dataset:
-      ISBI_TRAIN: 'data'
-    dtype:
-      ISBI_TRAIN: float32
-    nedt_gain:
-      ISBI_TRAIN: 0.5
+    path: '/home/papec/Work/neurodata_hdd/isbi12/train-labels.h5'
+    path_in_h5_dataset: 'data'
+    dtype: float32
+    nedt_gain: 0.5
 
 # Specify configuration for the loader
 loader_config:

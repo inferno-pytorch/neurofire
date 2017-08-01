@@ -10,11 +10,9 @@ class TestUNet2D(unittest.TestCase):
         from neurofire.models import UNet2D
 
         input_shape = [1, 1, 256, 256]
-        model = UNet2D(1, 1, n_scale=3)
-        model.initialize_weights()
+        model = UNet2D(1, 1, n_scale=4)
         input = Variable(torch.rand(*input_shape))
         output = model(input)
-        print(output)
         self.assertEqual(list(output.size()), input_shape)
 
 

@@ -6,7 +6,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as weight_init
 
-# TODO can we use the equivalent of 'SAME' padding somehow to not lose context ?
+# Use inferno ConvELU2D which implement 'SAME' padding and use exp linear units
+# as well as initialization ('OrthogonalWeightsZeroBias' -> weights are initialized with orthogonal, bias with zeros)
+from inferno.extensions.layers.convolutional import ConvELU2D
 
 class DownscaleLayer(nn.Module):
     """
@@ -16,22 +18,18 @@ class DownscaleLayer(nn.Module):
     def __init__(self, in_size, out_size, kernel_size=3):
         super(DownscaleLayer, self).__init__()
         self.layer = nn.Sequential(
-            nn.Conv2d(in_size, out_size, kernel_size),
+            ConvELU2D(in_size, out_size, kernel_size),
             nn.ReLU(),
-            nn.Conv2d(out_size, out_size, kernel_size),
+            ConvELU2D(out_size, out_size, kernel_size),
             nn.ReLU()
         )
 
-    # TODO there should be some inferno functionality for this ?!
-    # initialize the weights with xaver initialization
-    def initialize_weights(self):
-        for ll in self.layer:
-            if isinstance(ll, nn.Conv2d):
-                weight_init.xavier_normal(ll.weight)
 
     def forward(self, x):
         return self.layer(x)
 
+
+# TODO batchnorm and different up-scaling schemes
 
 class UpscaleLayer(nn.Module):
     """
@@ -43,19 +41,11 @@ class UpscaleLayer(nn.Module):
         self.up = nn.ConvTranspose2d(in_size, out_size, 2, stride=2)
         self.conv = nn.Sequential(
             # NOTE we need in_size here because we are concatenating
-            nn.Conv2d(in_size, out_size, kernel_size),
+            ConvELU2D(in_size, out_size, kernel_size),
             nn.ReLU(),
-            nn.Conv2d(out_size, out_size, kernel_size),
+            ConvELU2D(out_size, out_size, kernel_size),
             nn.ReLU()
         )
-
-    # TODO there should be some inferno functionality for this ?!
-    # initialize the weights with xaver initialization
-    def initialize_weights(self):
-        weight_init.xavier_normal(self.up.weight)
-        for ll in self.conv:
-            if isinstance(ll, nn.Conv2d):
-                weight_init.xavier_normal(ll.weight)
 
     def crop_skip_input(self, skip_input, target_size):
         """
@@ -115,12 +105,6 @@ class UNet2D(nn.Module):
 
         # last 1 x 1 conv layer
         self.last = nn.Conv2d(n_in, n_out_channels, 1)
-
-    def initialize_weights(self):
-        for scale in range(self.n_scale):
-            self.downscale_layers[scale].initialize_weights()
-            self.upscale_layers[scale].initialize_weights()
-        self.downscale_layers[-1].initialize_weights()
 
     # the forward pass - defining the connectivity of layers
     def forward(self, x):
