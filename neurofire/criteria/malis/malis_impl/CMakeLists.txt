@@ -106,7 +106,7 @@ macro(addPythonModule)
         TARGET _${MODULE_NAME}
         POST_BUILD
         COMMAND ${CMAKE_COMMAND} ARGS -E copy_if_different $<TARGET_FILE:_${MODULE_NAME}>
-        ${CMAKE_BINARY_DIR}
+        ${CMAKE_BINARY_DIR}/_malis_impl.so
         COMMENT "Copying target ${MODULE_NAME} to temporary module directory")
 
     # add_dependencies(malis_impl _${MODULE_NAME})

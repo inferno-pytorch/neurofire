@@ -1,4 +1,4 @@
-from _malis_impl import *
+from ._malis_impl import *
 
 # TODO would be nice to have this in python, but I don't want to go to the hassle of correctly
 # vectorifying the gt-affinities now
