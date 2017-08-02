@@ -28,7 +28,10 @@ def train(use_gpu=False):
     #trainer.build_metric('')
     #trainer.validate_every((1, 'epochs'))
 
-    trainer.save_every((1000, 'iterations'))
+    trainer.save_every(
+        (1000, 'iterations'),
+        to_directory=os.path.join(PROJECT_DIRECTORY, 'weights')
+    )
     trainer.set_max_num_iterations(int(1e4))
 
     # Tensorboard logger
