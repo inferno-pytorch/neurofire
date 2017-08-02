@@ -12,7 +12,7 @@ class TestMalis(unittest.TestCase):
         shape = (100, 100) if generate_2d else (100, 100, 100)
         dim = 2 if generate_2d else 3
 
-        affinities = np.random.random(shape + (dim,)).astype('float32')
+        affinities = np.random.random((dim,) + shape).astype('float32')
         groundtruth = np.zeros(shape, dtype='int64')
 
         current_label = 0
