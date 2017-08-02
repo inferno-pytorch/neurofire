@@ -27,12 +27,12 @@ void compute_malis_gradient(
     typedef DATA_TYPE DataType;
 
     // check that number of affinity channels matches the dimensions
-    NIFTY_CHECK_OP(affinities.shape(DIM),==,DIM,"Number of affinity channels does not match the dimension!");
-    NIFTY_CHECK_OP(gradientsOut.shape(DIM),==,DIM,"Number of gradient channels must match !");
+    NIFTY_CHECK_OP(affinities.shape(0),==,DIM,"Number of affinity channels does not match the dimension!");
+    NIFTY_CHECK_OP(gradientsOut.shape(0),==,DIM,"Number of gradient channels must match !");
     // check that shapes match
     for(int d = 0; d < DIM; ++d) {
-        NIFTY_CHECK_OP(affinities.shape(d),==,groundtruth.shape(d),"Affinity shape does not match gt shape!");
-        NIFTY_CHECK_OP(affinities.shape(d),==,gradientsOut.shape(d),"Affinity shape does not match gradients shape!");
+        NIFTY_CHECK_OP(affinities.shape(d+1),==,groundtruth.shape(d),"Affinity shape does not match gt shape!");
+        NIFTY_CHECK_OP(affinities.shape(d+1),==,gradientsOut.shape(d+1),"Affinity shape does not match gradients shape!");
     }
 
     // 1.) Initialize the union-find and the overlap vector, which stores for every pixel
@@ -115,19 +115,21 @@ void compute_malis_gradient(
     // iterate over the pqueue
     for(auto edgeIndex : pqueue) {
 
+        // TODO recheck and refactor
         // translate edge index to coordinate
         affCoord[0] = edgeIndex / affinities.strides(0);
         for(int d = 1; d < DIM+1; ++d) {
             affCoord[d] = (edgeIndex % affinities.strides(d-1) ) / affinities.strides(d);
         }
 
+        // the axis this edge is refering to
+        axis = affCoord[0];
+
         // first, we copy the spatial coordinates of the affinity pixel for both gt coords
         for(int d = 0; d < DIM; ++d) {
             gtCoordU[d] = affCoord[d];
             gtCoordV[d] = affCoord[d];
         }
-
-        axis = affCoord[DIM];
 
         // convention: edges encode the affinty to lower coordinates
         if(gtCoordV[axis] > 0) {
@@ -278,6 +280,7 @@ void compute_constrained_malis_gradient(
     // affintyPos = affinity, affinityNeg = 1. if gtAffinity would be 1
     for(size_t edgeIndex = 0; edgeIndex < numberOfEdges; edgeIndex++) {
 
+        // TODO recheck
         // translate edge index to coordinate
         affCoord[0] = edgeIndex / affinities.strides(0);
         for(int d = 1; d < DIM+1; ++d) {
@@ -285,15 +288,15 @@ void compute_constrained_malis_gradient(
         }
         affinity = affinities(affCoord.asStdArray());
 
+        // we change the V coordinate for the given axis (=corresponding coordinate)
+        // only if this results in a valid coordinate
+        axis = affCoord[0];
+
         // first, we copy the spatial coordinates of the affinity pixel for both gt coords
         for(int d = 0; d < DIM; ++d) {
             gtCoordU[d] = affCoord[d];
             gtCoordV[d] = affCoord[d];
         }
-
-        // we change the V coordinate for the given axis (=corresponding coordinate)
-        // only if this results in a valid coordinate
-        axis = affCoord[DIM];
 
         // convention: edges encode the affinty to lower coordinates
         if(gtCoordV[axis] > 0) {

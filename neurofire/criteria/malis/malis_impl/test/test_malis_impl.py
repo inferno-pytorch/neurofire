@@ -20,7 +20,7 @@ class MalisTest(unittest.TestCase):
         shape = (100, 100) if generate_2d else (100, 100, 100)
         dim = 2 if generate_2d else 3
 
-        affinities = np.random.random(shape + (dim,)).astype('float32')
+        affinities = np.random.random((dim,) + shape).astype('float32')
         groundtruth = np.zeros(shape, dtype='int64')
 
         current_label = 0
@@ -32,13 +32,6 @@ class MalisTest(unittest.TestCase):
                     current_label += 1
 
         return affinities, groundtruth
-
-
-    def transpose_for_pymalis(self, x):
-        assert x.ndim == 4
-        assert x.shape[-1] == 3
-        x = x.transpose((3, 0, 1, 2))
-        return np.ascontiguousarray(x)
 
 
     def test_malis_impl(self):
@@ -62,8 +55,6 @@ class MalisTest(unittest.TestCase):
 
         if True:
             # run constrained malis from pymalis and compare with malis imple output
-            affinities = self.transpose_for_pymalis(affinities)
-
             t_pymalis = time.time()
             gradients_pos, gradients_neg = pymalis.malis(affinities, groundtruth)
             gradients_pymalis = -(gradients_pos + gradients_neg) / 2.
@@ -80,7 +71,6 @@ class MalisTest(unittest.TestCase):
 
     def test_pymalis(self):
         affinities, groundtruth = self.generate_test_data(False)
-        affinities = self.transpose_for_pymalis(affinities)
         gradients_pos, gradients_neg = pymalis.malis(affinities, groundtruth)
         self.assertEqual(gradients_pos.shape, gradients_neg.shape)
 
