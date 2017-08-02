@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from neurofire.criteria.malis.malis import MalisLoss
+from neurofire.criteria.malis.malis import MalisLoss, ConstrainedMalisLoss, Malis
 import torch
 from torch.autograd import Variable
 
@@ -31,11 +31,37 @@ class TestMalis(unittest.TestCase):
         # Build criterion
         criterion = MalisLoss()
         # Evaluate criterion
-        loss = criterion(affinities, ground_truth)
+        loss = criterion(affinities, ground_truth).sum()
+        loss.backward()
+        # Validate
+        self.assertIsNotNone(affinities.grad)
+
+    def test_constrained_malis_loss(self):
+        affinities, ground_truth = self.generate_test_data()
+        # Convert to variables
+        affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
+        ground_truth = Variable(torch.from_numpy(ground_truth))
+        # Build criterion
+        criterion = ConstrainedMalisLoss()
+        # Evaluate criterion
+        loss = criterion(affinities, ground_truth).sum()
+        loss.backward()
+        # Validate
+        self.assertIsNotNone(affinities.grad)
+
+    def test_malis(self):
+        affinities, ground_truth = self.generate_test_data()
+        # Convert to variables
+        affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
+        ground_truth = Variable(torch.from_numpy(ground_truth))
+        # Build criterion
+        malis = Malis(constrained=True)
+        # Forward and back
+        loss = malis(affinities, ground_truth)
         loss.backward()
         # Validate
         self.assertIsNotNone(affinities.grad)
 
 
 if __name__ == '__main__':
-    TestMalis().test_malis_loss()
+    unittest.main()
