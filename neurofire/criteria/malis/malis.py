@@ -1,6 +1,8 @@
+import numpy as np
+import torch
 from torch.autograd import Function
 
-from malis_impl import malis_impl, constrained_malis_impl
+from .malis_impl.bld._malis_impl import malis_impl, constrained_malis_impl
 
 # malis loss and cpp impl adapted from:
 # https://github.com/naibaf7/caffe/blob/master/include/caffe/layers/malis_loss_layer.hpp
@@ -17,10 +19,16 @@ from malis_impl import malis_impl, constrained_malis_impl
 # https://github.com/pytorch/pytorch/blob/master/torch/autograd/function.py#L123
 # see also
 # http://pytorch.org/tutorials/beginner/examples_autograd/two_layer_net_custom_function.html
+
+
 class MalisLoss(Function):
     """
     Malis Loss
     """
+
+    def __init__(self):
+        super(MalisLoss, self).__init__()
+        self._intermediates = {}
 
     def forward(self, affinities, groundtruth):
         """
@@ -35,6 +43,12 @@ class MalisLoss(Function):
         -------
         loss: malis loss
         """
+        # Convert input to numpy
+        affinities = affinities.numpy()
+        groundtruth = groundtruth.numpy()
+        # Store shapes for backward
+        self._intermediates.update({'affinities_shape': affinities.shape,
+                                    'groundtruth_shape': groundtruth.shape})
 
         # fist, compute the positive loss and gradients
         pos_gradients, pos_loss, _, _ = malis_impl(
@@ -47,20 +61,28 @@ class MalisLoss(Function):
         )
 
         # save the combined gradient for the backward pass
-        self.save_for_backward(
-            -(neg_gradients + pos_gradients) / 2.
-        )
+        combined_gradient = -(neg_gradients + pos_gradients) / 2.
+        self._intermediates.update({'combined_gradient': combined_gradient})
 
-        # return the combined loss
-        return (neg_loss + pos_loss) / 2.
+        # get the combined loss
+        combined_loss = (neg_loss + pos_loss) / 2.
+        # return
+        return torch.from_numpy(np.asarray([combined_loss]))
 
     def backward(self, grad_output):
         """
         Apply malis backward pass to get the gradients.
         """
-
-        gradients, = self.saved_tensors
-        return gradients
+        # Fetch gradient from intermediates
+        gradients = self._intermediates.get('combined_gradient')
+        assert gradients is not None
+        # Make sure the shape is correct
+        assert gradients.shape == self._intermediates.get('affinities_shape')
+        # Make a zero variable for the target
+        target_gradient = np.zeros(shape=self._intermediates.get('groundtruth_shape'))
+        # Clear intermediates
+        self._intermediates.clear()
+        return torch.from_numpy(gradients), torch.from_numpy(target_gradient)
 
 
 class ConstrainedMalisLoss(Function):
