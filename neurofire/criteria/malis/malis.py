@@ -51,8 +51,10 @@ class MalisLoss(Function):
 
         Parameters
         ----------
-        affinities : torch.Tensor wrapping the affinity tensor
-        groundtruth : torch.Tensor wrapping the groundtruth tensor
+        affinities : torch.Tensor
+            The affinity tensor (the network output). Must be a 4D NCHW tensor, where C in {2, 3}.
+        groundtruth : torch.Tensor
+            The ground truth tensor. Can be a 3D NHW tensor or a 4D NCHW tensor, where C = 1.
 
         Returns
         -------
@@ -62,10 +64,20 @@ class MalisLoss(Function):
         # Convert input to numpy
         affinities = affinities.numpy()
         groundtruth = groundtruth.numpy()
+        # Validate
+        assert affinities.ndim == 4, "Affinity tensor must have 4 dimensions."
+        assert groundtruth.ndim in [3, 4], "Groundtruth tensor must have 3 or 4 dimensions."
+        assert affinities.shape[-2:] == groundtruth.shape[-2:], \
+            "Spatial shapes of affinities and groundtruth do not match."
+        assert affinities.shape[1] in [2, 3], \
+            "Affinities must have 2 or 3 channels (for 2D and 3D affinities, respectively)"
         # Store shapes for backward
         self._intermediates.update({'affinities_shape': affinities.shape,
                                     'groundtruth_shape': groundtruth.shape})
-
+        # For consistency, account for a channel axis in the ground truth
+        if groundtruth.ndim == 4:
+            assert groundtruth.shape[1] == 1
+            groundtruth = groundtruth[:, 0, ...]
         # Parallelize over the leading batch axis
         all_affinities = list(affinities)
         all_groundtruth = list(groundtruth)
@@ -120,8 +132,10 @@ class ConstrainedMalisLoss(Function):
 
         Parameters
         ----------
-        affinities : torch.Tensor wrapping the affinity tensor
-        groundtruth : torch.Tensor wrapping the groundtruth tensor
+        affinities : torch.Tensor
+            The affinity tensor (the network output). Must be a 4D NCHW tensor, where C in {2, 3}.
+        groundtruth : torch.Tensor
+            The ground truth tensor. Can be a 3D NHW tensor or a 4D NCHW tensor, where C = 1.
 
         Returns
         -------
@@ -130,9 +144,20 @@ class ConstrainedMalisLoss(Function):
         # Convert to numpy
         affinities = affinities.numpy()
         groundtruth = groundtruth.numpy()
+        # Validate
+        assert affinities.ndim == 4, "Affinity tensor must have 4 dimensions."
+        assert groundtruth.ndim in [3, 4], "Groundtruth tensor must have 3 or 4 dimensions."
+        assert affinities.shape[-2:] == groundtruth.shape[-2:], \
+            "Spatial shapes of affinities and groundtruth do not match."
+        assert affinities.shape[1] in [2, 3], \
+            "Affinities must have 2 or 3 channels (for 2D and 3D affinities, respectively)"
         # Store shapes for backward
         self._intermediates.update({'affinities_shape': affinities.shape,
                                     'groundtruth_shape': groundtruth.shape})
+        # For consistency, account for a channel axis in the ground truth
+        if groundtruth.ndim == 4:
+            assert groundtruth.shape[1] == 1
+            groundtruth = groundtruth[:, 0, ...]
         # Compute gradients
         all_affinities = list(affinities)
         all_groundtruth = list(groundtruth)

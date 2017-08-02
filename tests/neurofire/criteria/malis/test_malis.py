@@ -70,6 +70,26 @@ class TestMalis(unittest.TestCase):
         # Validate
         self.assertIsNotNone(affinities.grad)
 
+    def test_malis_gpu(self):
+        if not torch.cuda.is_available():
+            return
+        affinities, ground_truth = self.generate_test_data()
+        affinities = np.array([affinities.copy() for _ in range(self.BATCH_SIZE)])
+        # 4D ground truth, as one would have from the feeder
+        ground_truth = np.array([ground_truth.copy() for _ in range(self.BATCH_SIZE)])[:, None, ...]
+        # Convert to variables and transfer to GPU
+        affinities = Variable(torch.from_numpy(affinities).cuda(), requires_grad=True)
+        ground_truth = Variable(torch.from_numpy(ground_truth).cuda())
+        # Build criterion
+        malis = Malis(constrained=True)
+        # Forward and back
+        loss = malis(affinities, ground_truth)
+        loss.backward()
+        # Validate
+        self.assertIsNotNone(affinities.grad)
+        self.assertFalse(loss.data.is_cuda)
+        self.assertTrue(affinities.grad.data.is_cuda)
+
 
 if __name__ == '__main__':
     unittest.main()
