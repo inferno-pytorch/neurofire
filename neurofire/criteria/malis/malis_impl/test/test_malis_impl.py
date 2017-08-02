@@ -61,7 +61,6 @@ class MalisTest(unittest.TestCase):
             print("Runtime for constrained pymalis:", time.time() - t_pymalis)
             self.assertEqual(gradients_pymalis.shape, affinities.shape)
 
-            gradients_pymalis = gradients_pymalis.transpose((1, 2, 3, 0))
             diff = np.isclose(gradients_malis_impl, gradients_pymalis, rtol=1e-2)
             print("Number of equal entries:", np.sum(diff))
             print("                       /", diff.size)
