@@ -6,6 +6,8 @@ from torch.autograd import Variable
 
 
 class TestMalis(unittest.TestCase):
+    BATCH_SIZE = 10
+
     def generate_test_data(self, generate_2d=True):
         shape = (100, 100) if generate_2d else (100, 100, 100)
         dim = 2 if generate_2d else 3
@@ -25,6 +27,8 @@ class TestMalis(unittest.TestCase):
 
     def test_malis_loss(self):
         affinities, ground_truth = self.generate_test_data()
+        affinities = np.array([affinities.copy() for _ in range(self.BATCH_SIZE)])
+        ground_truth = np.array([ground_truth.copy() for _ in range(self.BATCH_SIZE)])
         # Convert to variables
         affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
         ground_truth = Variable(torch.from_numpy(ground_truth))
@@ -38,6 +42,8 @@ class TestMalis(unittest.TestCase):
 
     def test_constrained_malis_loss(self):
         affinities, ground_truth = self.generate_test_data()
+        affinities = np.array([affinities.copy() for _ in range(self.BATCH_SIZE)])
+        ground_truth = np.array([ground_truth.copy() for _ in range(self.BATCH_SIZE)])
         # Convert to variables
         affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
         ground_truth = Variable(torch.from_numpy(ground_truth))
@@ -51,6 +57,8 @@ class TestMalis(unittest.TestCase):
 
     def test_malis(self):
         affinities, ground_truth = self.generate_test_data()
+        affinities = np.array([affinities.copy() for _ in range(self.BATCH_SIZE)])
+        ground_truth = np.array([ground_truth.copy() for _ in range(self.BATCH_SIZE)])
         # Convert to variables
         affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
         ground_truth = Variable(torch.from_numpy(ground_truth))

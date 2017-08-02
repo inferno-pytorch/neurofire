@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Function
+from concurrent.futures import ThreadPoolExecutor
+import os
 
 from .malis_impl.bld._malis_impl import malis_impl, constrained_malis_impl
 
@@ -31,6 +33,16 @@ class MalisLoss(Function):
         super(MalisLoss, self).__init__()
         self._intermediates = {}
 
+    def _wrapper(self, affinities, groundtruth):
+        # fist, compute the positive loss and gradients
+        pos_gradients, _, _, _ = malis_impl(
+            affinities, groundtruth, True)
+
+        # next, compute the negative loss and gradients
+        neg_gradients, _, _, _ = malis_impl(
+            affinities, groundtruth, False)
+        return pos_gradients, neg_gradients
+
     def forward(self, affinities, groundtruth):
         """
         Apply malis forward pass to get the loss gradient. The final loss function is then
@@ -45,6 +57,7 @@ class MalisLoss(Function):
         -------
         loss: malis loss gradients
         """
+        # TODO insert asserts
         # Convert input to numpy
         affinities = affinities.numpy()
         groundtruth = groundtruth.numpy()
@@ -52,16 +65,17 @@ class MalisLoss(Function):
         self._intermediates.update({'affinities_shape': affinities.shape,
                                     'groundtruth_shape': groundtruth.shape})
 
-        # fist, compute the positive loss and gradients
-        pos_gradients, pos_loss, _, _ = malis_impl(
-            affinities, groundtruth, True
-        )
+        # Parallelize over the leading batch axis
+        all_affinities = list(affinities)
+        all_groundtruth = list(groundtruth)
 
-        # next, compute the negative loss and gradients
-        neg_gradients, neg_loss, _, _ = malis_impl(
-            affinities, groundtruth, False
-        )
-
+        with ThreadPoolExecutor(max_workers=(os.cpu_count() or 1)) as executor:
+            all_pos_and_neg_gradients = list(executor.map(self._wrapper,
+                                                          all_affinities,
+                                                          all_groundtruth))
+        all_pos_gradients, all_neg_gradients = zip(*all_pos_and_neg_gradients)
+        pos_gradients = np.array(all_pos_gradients)
+        neg_gradients = np.array(all_neg_gradients)
         # save the combined gradient for the backward pass
         # the trailing .mul(1) makes a copy of the numpy tensor, without which pytorch segfaults
         # yes, i've aged figuring this out
@@ -95,6 +109,10 @@ class ConstrainedMalisLoss(Function):
         # Store shapes for backward
         self._intermediates = {}
 
+    def _wrapper(self, affinities, groundtruth):
+        gradients, _ = constrained_malis_impl(affinities, groundtruth)
+        return gradients
+
     def forward(self, affinities, groundtruth):
         """
         Apply constrained malis forward pass to get the loss gradients.
@@ -115,7 +133,13 @@ class ConstrainedMalisLoss(Function):
         self._intermediates.update({'affinities_shape': affinities.shape,
                                     'groundtruth_shape': groundtruth.shape})
         # Compute gradients
-        gradients, loss = constrained_malis_impl(affinities, groundtruth)
+        all_affinities = list(affinities)
+        all_groundtruth = list(groundtruth)
+        # Distribute over threads (GIL is lifted)
+        with ThreadPoolExecutor(max_workers=(os.cpu_count() or 1)) as executor:
+            all_gradients = list(executor.map(self._wrapper, all_affinities, all_groundtruth))
+        # Build arrays and tensors
+        gradients = np.array(all_gradients)
         gradients = torch.from_numpy(gradients).mul(-0.5)
         self.save_for_backward(gradients)
         return gradients
