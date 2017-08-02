@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Function
 from concurrent.futures import ThreadPoolExecutor
+from inferno.extensions.layers.device import DeviceTransfer
 import os
 
 from .malis_impl.bld._malis_impl import malis_impl, constrained_malis_impl
@@ -157,16 +158,31 @@ class Malis(nn.Module):
     """
     This computes the Malis pseudo-loss, which is defined such that the backprop
     deltas are correct.
+
+    Notes
+    -----
+    Malis is only implemented on the CPU. Variables on the GPU will be transfered to the CPU in
+    the forward pass, and their gradients back to the GPU in the backward pass.
+    Also, the resulting pseudo loss is on the CPU.
     """
     def __init__(self, constrained=True):
+        """
+        Parameters
+        ----------
+        constrained : bool
+            Whether to use constrained MALIS.
+        """
         super(Malis, self).__init__()
         self.constrained = constrained
+        self.device_transfer = DeviceTransfer('cpu')
         if constrained:
             self.malis_loss = ConstrainedMalisLoss()
         else:
             self.malis_loss = MalisLoss()
 
+    # noinspection PyCallingNonCallable
     def forward(self, input, target):
+        input, target = self.device_transfer(input, target)
         loss_gradients = self.malis_loss(input, target)
         pseudo_loss = loss_gradients.sum()
         return pseudo_loss
