@@ -12,6 +12,12 @@ namespace malis_impl {
 
     using namespace py;
 
+    template <class ARRAY>
+    void inline initPyView(ARRAY & data) {
+        // TODO just get the pointer to 0 and fill up to data.size() with zeros - should be much faster
+        std::fill(data.begin(), data.end(), 0.);
+    }
+
     template<unsigned DIM, class DATA_TYPE, class LABEL_TYPE>
     void exportMalisLossT(py::module & malisModule) {
 
@@ -30,6 +36,8 @@ namespace malis_impl {
 
                 // return data
                 nifty::marray::PyView<DATA_TYPE, DIM+1> gradients(shape.begin(), shape.end());
+                initPyView(gradients);
+
                 DATA_TYPE loss, classficationError, randIndex;
 
                 // call c++ function
@@ -70,6 +78,8 @@ namespace malis_impl {
 
                 // return data
                 nifty::marray::PyView<DATA_TYPE, DIM+1> gradients(shape.begin(), shape.end());
+                initPyView(gradients);
+
                 DATA_TYPE loss = 0;
 
                 // call c++ function

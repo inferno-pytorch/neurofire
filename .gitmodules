@@ -1,6 +1,6 @@
 [submodule "neurofire/criteria/malis/malis_impl/nifty"]
 	path = neurofire/criteria/malis/malis_impl/nifty
 	url = https://github.com/DerThorsten/nifty.git
-[submodule "neurofire/criteria/malis/malis_impl/test/pymalis"]
-	path = neurofire/criteria/malis/malis_impl/test/pymalis
+[submodule "tests/neurofire/criteria/malis/pymalis"]
+	path = tests/neurofire/criteria/malis/pymalis
 	url = https://github.com/funkey/pymalis

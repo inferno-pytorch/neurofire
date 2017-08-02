@@ -61,7 +61,7 @@ void compute_malis_gradient(
         auto gtId = groundtruth(coord.asStdArray());
 
         if(gtId != 0) {
-            overlaps[nodeIndex].insert( std::make_pair(gtId,1) );
+            overlaps[nodeIndex].insert(std::make_pair(gtId, 1));
             ++segmentSizes[gtId];
             ++numberOfLabeledNodes;
             nPairPos += (segmentSizes[gtId] - 1);
@@ -104,7 +104,7 @@ void compute_malis_gradient(
     // we compute the loss and gradient
 
     size_t axis;
-    LabelType setU, setV;
+    LabelType setU, setV, nodeU, nodeV;
     size_t nPair = 0, nPairIncorrect = 0 ;
     double loss = 0, gradient = 0;
     Coord gtCoordU, gtCoordV;
@@ -115,7 +115,6 @@ void compute_malis_gradient(
     // iterate over the pqueue
     for(auto edgeIndex : pqueue) {
 
-        // TODO recheck and refactor
         // translate edge index to coordinate
         affCoord[0] = edgeIndex / affinities.strides(0);
         for(int d = 1; d < DIM+1; ++d) {
@@ -126,9 +125,9 @@ void compute_malis_gradient(
         axis = affCoord[0];
 
         // first, we copy the spatial coordinates of the affinity pixel for both gt coords
-        for(int d = 0; d < DIM; ++d) {
-            gtCoordU[d] = affCoord[d];
-            gtCoordV[d] = affCoord[d];
+        for(int d = 1; d < DIM + 1; ++d) {
+            gtCoordU[d - 1] = affCoord[d];
+            gtCoordV[d - 1] = affCoord[d];
         }
 
         // convention: edges encode the affinty to lower coordinates
@@ -145,11 +144,45 @@ void compute_malis_gradient(
             continue;
         }
 
-        setU = sets.find( groundtruth(gtCoordU.asStdArray()) ) ;
-        setV = sets.find( groundtruth(gtCoordV.asStdArray()) ) ;
+
+        nodeU = 0;
+        nodeV = 0;
+        for(int d = 0; d < DIM; ++d) {
+            nodeU += gtCoordU[d] * groundtruth.strides(d);
+            nodeV += gtCoordV[d] * groundtruth.strides(d);
+        }
+        setU = sets.find(nodeU);
+        setV = sets.find(nodeV);
 
         // only do stuff if the two segments are not merged yet
         if(setU != setV) {
+
+            //
+            // debug out
+            //
+
+            //std::cout << "Edge: " << edgeIndex << std::endl;
+            //std::cout << "Corresponding to affinity coordinate: ";
+            //for(int d = 0; d < DIM + 1; ++d) {
+            //    std::cout << affCoord[d] << " ";
+            //}
+            //std::cout << std::endl;
+
+            // std::cout << "GT coordinates U: ";
+            // for(int d = 0; d < DIM; ++d) {
+            //     std::cout << gtCoordU[d] << " ";
+            // }
+            // std::cout << std::endl;
+
+            // std::cout << "GT coordinates V: ";
+            // for(int d = 0; d < DIM; ++d) {
+            //     std::cout << gtCoordV[d] << " ";
+            // }
+            // std::cout << std::endl;
+
+            // std::cout << "Corresponding to nodes: " << nodeU << " " << nodeV << std::endl;
+            // std::cout << "Correspodning to Sets: " << setU << " " << setV << std::endl;
+
             sets.merge(setU, setV);
 
             // compute the number of pairs merged by this edge
@@ -163,6 +196,9 @@ void compute_malis_gradient(
                     // for pos:
                     // we add nPairs if we join two nodes in the same gt segment
                     if (pos && (itU->first == itV->first)) {
+
+                        // std::cout << "Adding pos loss for " << nPair << " pairs" << std::endl;
+
                         affinity = affinities(affCoord.asStdArray());
                         gradient = 1. - affinity;
                         loss += gradient * gradient * nPair;
@@ -178,6 +214,9 @@ void compute_malis_gradient(
                     // for !pos:
                     // we add nPairs if we join two nodes in different gt segments
                     else if (!pos && (itU->first != itV->first)) {
+
+                        // std::cout << "Adding neg loss for " << nPair << " pairs" << std::endl;
+
                         affinity = affinities(affCoord.asStdArray());
                         gradient = -affinity;
                         loss += gradient * gradient * nPair;
@@ -293,9 +332,9 @@ void compute_constrained_malis_gradient(
         axis = affCoord[0];
 
         // first, we copy the spatial coordinates of the affinity pixel for both gt coords
-        for(int d = 0; d < DIM; ++d) {
-            gtCoordU[d] = affCoord[d];
-            gtCoordV[d] = affCoord[d];
+        for(int d = 1; d < DIM + 1; ++d) {
+            gtCoordU[d - 1] = affCoord[d];
+            gtCoordV[d - 1] = affCoord[d];
         }
 
         // convention: edges encode the affinty to lower coordinates
