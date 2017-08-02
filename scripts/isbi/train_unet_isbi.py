@@ -1,17 +1,24 @@
 from __future__ import print_function
 
+import os
+
 import neurofire
 from neurofire.datasets.isbi2012.loaders import get_isbi_loader
 from neurofire.models import UNet2D
 
+from inferno.trainers.basic import Trainer
+from inferno.trainers.callbacks.logging.tensorboard import TensorboardLogger
+
 import torch
 from torch.autograd import Variable
+
+PROJECT_DIRECTORY = '.'
 
 # TODO affinities + malis
 def train(use_gpu=False):
     model = UNet2D(1, 1, n_scale=2) # 1 grayscale input channel, 1 output channel (membrane probability)
 
-    train_loader, validate_loader = get_isbi_loader('./data_config.yml')
+    train_loader = get_isbi_loader('./data_config.yml')
 
     trainer = Trainer(model)
     trainer.build_criterion('SorensenDiceLoss')
@@ -23,7 +30,15 @@ def train(use_gpu=False):
 
     trainer.save_every((1000, 'iterations'))
     trainer.set_max_num_iterations(1e4)
-    # TODO Tensorboard logger
+
+    # Tensorboard logger
+    trainer.build_logger(TensorboardLogger(
+	send_image_at_batch_indices=0,
+        send_image_at_channel_indices='all',
+        log_images_every=(20, 'iterations')
+        ),
+	log_directory=os.path.join(PROJECT_DIRECTORY, 'Logs')
+    )
 
     trainer.bind_loader('train', train_loader)
     # trainer.bind_loader('test', validate_loader)

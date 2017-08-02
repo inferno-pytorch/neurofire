@@ -20,14 +20,12 @@ slicing_config:
 volume_config:
   # Raw data
   raw:
-    path: '/home/papec/Work/neurodata_hdd/isbi12/train-volume.h5'
-    path_in_h5_dataset: 'data'
+    path: '/home/papec/Work/neurodata_hdd/ntwrk_papec/ISBI2012/raw_train.tif'
     dtype: float32
 
   # Membranes
   membranes:
-    path: '/home/papec/Work/neurodata_hdd/isbi12/train-labels.h5'
-    path_in_h5_dataset: 'data'
+    path: '/home/papec/Work/neurodata_hdd/ntwrk_papec/ISBI2012/groundtruth.tif'
     dtype: float32
     nedt_gain: 0.5
 
