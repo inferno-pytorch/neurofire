@@ -6,7 +6,7 @@ This requires nifty, which can be included as git submodule:
 
 ```
 $ cd malis_impl
-$ git submodule --init --recursive update
+$ git submodule update --init --recursive
 ```
 
 Next, the malis C++ implementation needs to be build with make and cmake:
