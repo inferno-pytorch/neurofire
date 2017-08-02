@@ -20,12 +20,12 @@ slicing_config:
 volume_config:
   # Raw data
   raw:
-    path: '/home/papec/Work/neurodata_hdd/ntwrk_papec/ISBI2012/raw_train.tif'
+    path: '/groups/saalfeld/home/papec/Work/neurodata_hdd/ISBI2012/raw_train.tif'
     dtype: float32
 
   # Membranes
   membranes:
-    path: '/home/papec/Work/neurodata_hdd/ntwrk_papec/ISBI2012/groundtruth.tif'
+    path: '/groups/saalfeld/home/papec/Work/neurodata_hdd/ISBI2012/groundtruth.tif'
     dtype: float32
     nedt_gain: 0.5
 

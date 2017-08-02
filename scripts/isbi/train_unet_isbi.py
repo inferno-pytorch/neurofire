@@ -29,7 +29,7 @@ def train(use_gpu=False):
     #trainer.validate_every((1, 'epochs'))
 
     trainer.save_every((1000, 'iterations'))
-    trainer.set_max_num_iterations(1e4)
+    trainer.set_max_num_iterations(int(1e4))
 
     # Tensorboard logger
     trainer.build_logger(TensorboardLogger(
@@ -50,4 +50,4 @@ def train(use_gpu=False):
 
 
 if __name__ == '__main__':
-    train()
+    train(True)
