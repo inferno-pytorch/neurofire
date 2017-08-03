@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <map>
 
+// for benchmarking
+#include <chrono>
+
 #include "nifty/marray/marray.hxx"
 #include "nifty/tools/for_each_coordinate.hxx"
 #include "nifty/ufd/ufd.hxx"
@@ -113,7 +116,7 @@ void compute_malis_gradient(
     Coord gtCoordU, gtCoordV;
     AffinityCoord affCoord;
     typename std::map<LabelType,size_t>::iterator itU, itV;
-    DATA_TYPE affinity;
+    DATA_TYPE affinity, currentGradient;
 
     // iterate over the pqueue
     for(auto edgeIndex : pqueue) {
@@ -186,6 +189,13 @@ void compute_malis_gradient(
             // std::cout << "Correspodning to Sets: " << setU << " " << setV << std::endl;
 
             sets.merge(setU, setV);
+            currentGradient = 0.;
+            affinity = affinities(affCoord.asStdArray());
+            if(pos) {
+                gradient = 1. - affinity;
+            } else {
+                gradient = -affinity;
+            }
 
             // compute the number of pairs merged by this edge
             for (itU = overlaps[setU].begin(); itU != overlaps[setU].end(); ++itU) {
@@ -200,11 +210,8 @@ void compute_malis_gradient(
                     if (pos && (itU->first == itV->first)) {
 
                         // std::cout << "Adding pos loss for " << nPair << " pairs" << std::endl;
-
-                        affinity = affinities(affCoord.asStdArray());
-                        gradient = 1. - affinity;
                         loss += gradient * gradient * nPair;
-                        gradientsOut(affCoord.asStdArray()) += gradient * nPair;
+                        currentGradient += gradient * nPair;
 
                         // if the affinity for this edge is smaller than 0.5, although the two nodes are connected in the
                         // groundtruth, this is a classification error
@@ -219,10 +226,8 @@ void compute_malis_gradient(
 
                         // std::cout << "Adding neg loss for " << nPair << " pairs" << std::endl;
 
-                        affinity = affinities(affCoord.asStdArray());
-                        gradient = -affinity;
                         loss += gradient * gradient * nPair;
-                        gradientsOut(affCoord.asStdArray()) += gradient * nPair;
+                        currentGradient += gradient * nPair;
 
                         // if the affinity for this edge is bigger than 0.5, although the two nodes are not connected in the
                         // groundtruth, this is a classification error
@@ -233,8 +238,8 @@ void compute_malis_gradient(
                 }
             }
 
-            // normalize the gradients
-            gradientsOut(affCoord.asStdArray()) /= nPairNorm;
+            // add the normalized gradient to the output at this affinity coordinate
+            gradientsOut(affCoord.asStdArray()) += (currentGradient / nPairNorm);
 
             // move the pixel bags of the non-representative to the representative
             if (sets.find(setU) == setV) // make setU the rep to keep and setV the rep to empty
@@ -306,6 +311,9 @@ void compute_constrained_malis_gradient(
     LabelType labelU, labelV;
     DataType affinity;
 
+    //typedef std::chrono::milliseconds TimeType;
+    //auto t0 = std::chrono::steady_clock::now();
+
     // we iterate over all the edges, constructing the affinity values for positive and negative pass
     // the positive affinities are set to min(affinities, gtAffinities)
     // the negative affinities are set to max(affinities, gtAffinities)
@@ -360,31 +368,8 @@ void compute_constrained_malis_gradient(
 
     });
 
-
-    // FIXME in-place adding of gradients yields different result for some reason I can't really explain...
-
-    //// TODO if we want to weight pos and neg differently, we need to pass a corresponding factor
-    //// to compute malis loss
-    //// calculate the gradients
-    //// note that gradients are added in-place to gradientsOut
-
-    //// calculate the positive malis gradients
-    //DataType lossPos, rand, classErr;
-    //compute_malis_gradient<DIM>(
-    //    affinitiesPos, groundtruth, true, gradientsOut, lossPos, classErr, rand
-    //);
-
-    //// calculate the negative malis gradients
-    //DataType lossNeg;
-    //compute_malis_gradient<DIM>(
-    //    affinitiesNeg, groundtruth, false, gradientsOut, lossNeg, classErr, rand
-    //);
-
-    //lossOut = (lossPos + lossNeg) / 2.;
-
-
-    nifty::marray::Marray<DataType> gradNeg(affShape.begin(), affShape.end(), 0);
-    nifty::marray::Marray<DataType> gradPos(affShape.begin(), affShape.end(), 0);
+    //auto t1 = std::chrono::steady_clock::now();
+    //std::cout << "T-gtaffinity: " << std::chrono::duration_cast<TimeType>(t1 - t0).count() << " mus" << std::endl;
 
     // TODO if we want to weight pos and neg differently, we need to pass a corresponding factor
     // to compute malis loss
@@ -394,16 +379,21 @@ void compute_constrained_malis_gradient(
     // calculate the positive malis gradients
     DataType lossPos, rand, classErr;
     compute_malis_gradient<DIM>(
-        affinitiesPos, groundtruth, true, gradPos, lossPos, classErr, rand
+        affinitiesPos, groundtruth, true, gradientsOut, lossPos, classErr, rand
     );
+
+    //auto t2 = std::chrono::steady_clock::now();
+    //std::cout << "T-pos pass:   " << std::chrono::duration_cast<TimeType>(t2 - t1).count() << " mus" << std::endl;
 
     // calculate the negative malis gradients
     DataType lossNeg;
     compute_malis_gradient<DIM>(
-        affinitiesNeg, groundtruth, false, gradNeg, lossNeg, classErr, rand
+        affinitiesNeg, groundtruth, false, gradientsOut, lossNeg, classErr, rand
     );
 
-    gradientsOut = gradNeg + gradPos;
+    //auto t3 = std::chrono::steady_clock::now();
+    //std::cout << "T-neg pass:   " << std::chrono::duration_cast<TimeType>(t3 - t2).count() << " mus" << std::endl;
+
     lossOut = (lossPos + lossNeg) / 2.;
 }
 

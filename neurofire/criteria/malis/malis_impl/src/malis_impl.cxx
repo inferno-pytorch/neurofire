@@ -14,7 +14,13 @@ namespace malis_impl {
 
     template <class ARRAY>
     void inline initPyView(ARRAY & data) {
-        // TODO just get the pointer to 0 and fill up to data.size() with zeros - should be much faster
+
+        // FIXME this would be the easiest and fastest, but for some reason won't compile
+        // although operator= is overloaded for marray::View
+        //data = static_cast<typename ARRAY::value_type>(0.);
+
+        // iterators for multiarray are slow :(
+        // get the pointer to 0 and fill up to data.size() with zeros - should be much faster
         std::fill(data.begin(), data.end(), 0.);
     }
 
@@ -79,7 +85,7 @@ namespace malis_impl {
 
                 // return data
                 nifty::marray::PyView<DATA_TYPE, DIM+1> gradients(shape.begin(), shape.end());
-
+                //nifty::marray::Marray<DATA_TYPE> gradients(shape.begin(), shape.end());
                 DATA_TYPE loss = 0;
 
                 // call c++ function
@@ -95,8 +101,8 @@ namespace malis_impl {
                     );
                 }
 
-                // FIXME this needs to copy the data, so it is not the most efficient thing to do...
-                return std::make_tuple(gradients, loss);
+                // we don't return the loss for now, as it can't be used anyway
+                return gradients;
             },
             py::arg("affinities"), py::arg("groundtruth")
         );

@@ -123,7 +123,7 @@ class ConstrainedMalisLoss(Function):
         self._intermediates = {}
 
     def _wrapper(self, affinities, groundtruth):
-        gradients, _ = constrained_malis_impl(affinities, groundtruth)
+        gradients = constrained_malis_impl(affinities, groundtruth)
         return gradients
 
     def forward(self, affinities, groundtruth):
