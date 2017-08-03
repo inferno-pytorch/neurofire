@@ -91,7 +91,7 @@ class TestSegmentation(unittest.TestCase):
 
         return affinities
 
-    def _test_brute_force_toy(self):
+    def test_brute_force_toy(self):
         segmentation, expected = self.generate_toy_data()
         output = self.affinities_brute_force(segmentation, expected.dtype)
         #print(output[0])
@@ -103,14 +103,14 @@ class TestSegmentation(unittest.TestCase):
     def test_toy(self):
         segmentation, expected = self.generate_toy_data()
         transform = seg.Segmentation2Affinities(dim=2)
-        output = transform(segmentation[None,:]).squeeze()
+        output = transform(segmentation[None, :]).squeeze()
         #print(output[0])
         print(output[0])
         self.assertEqual(output.shape, expected.shape)
         self.assertTrue((output == expected).all())
 
 
-    def _test_segmentation2affinitiy_random(self):
+    def test_segmentation2affinitiy_random(self):
         # 3D with 3D affinities
         wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
         # Build transform
@@ -134,7 +134,7 @@ class TestSegmentation(unittest.TestCase):
         self.assertEqual(output.shape[0], 2)
 
 
-    def _test_segmentation2affinitiy_2D(self):
+    def test_segmentation2affinitiy_2D(self):
         segmentation = self.generate_segmentation()
 
         # output from the segmentation module
@@ -148,7 +148,7 @@ class TestSegmentation(unittest.TestCase):
         self.assertTrue((output == output_expected).all())
 
 
-    def _test_segmentation2affinitiy_3D(self):
+    def test_segmentation2affinitiy_3D(self):
         segmentation = self.generate_segmentation(False)
 
         # output from the segmentation module

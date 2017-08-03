@@ -66,10 +66,13 @@ class Segmentation2Affinities(Transform):
             shift_combined = np.zeros(shape=(3, 1, 3, 3, 3), dtype=self.dtype)
             # Shift depth
             shift_combined[0, 0, 0, 1, 1] = 1.
+            shift_combined[0, 0, 1, 1, 1] = -1.
             # Shift height
             shift_combined[1, 0, 1, 0, 1] = 1.
+            shift_combined[1, 0, 1, 1, 1] = -1.
             # Shift width
             shift_combined[2, 0, 1, 1, 0] = 1.
+            shift_combined[2, 0, 1, 1, 1] = -1.
             # Set
             self._shift_kernels = shift_combined
         elif self.dim == 2:
@@ -78,8 +81,10 @@ class Segmentation2Affinities(Transform):
             shift_combined = np.zeros(shape=(2, 1, 3, 3), dtype=self.dtype)
             # Shift height
             shift_combined[0, 0, 0, 1] = 1.
+            shift_combined[0, 0, 1, 1] = -1.
             # Shift width
             shift_combined[1, 0, 1, 0] = 1.
+            shift_combined[1, 0, 1, 1] = -1.
             # Set
             self._shift_kernels = shift_combined
         else:
