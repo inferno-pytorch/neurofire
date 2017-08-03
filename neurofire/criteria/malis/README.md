@@ -9,7 +9,7 @@ $ cd malis_impl
 $ git submodule update --init --recursive
 ```
 
-Next, the malis C++ implementation needs to be build with make and cmake:
+Next, the malis C++ implementation needs to be built with make and cmake:
 
 ```
 $ mkdir bld
@@ -20,4 +20,9 @@ $ make
 
 ## Usage
 
-TODO
+To use Malis, simply: 
+
+```python
+from neurofire.criteria.malis import Malis
+```
+and use `Malis` as the training criteria. 
