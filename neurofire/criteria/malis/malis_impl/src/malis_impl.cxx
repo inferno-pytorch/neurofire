@@ -36,13 +36,14 @@ namespace malis_impl {
 
                 // return data
                 nifty::marray::PyView<DATA_TYPE, DIM+1> gradients(shape.begin(), shape.end());
-                initPyView(gradients);
 
                 DATA_TYPE loss, classficationError, randIndex;
 
                 // call c++ function
                 {
                     py::gil_scoped_release allowThreads;
+
+                    initPyView(gradients);
                     compute_malis_gradient<DIM>(
                         affinities,
                         groundtruth,
@@ -78,13 +79,14 @@ namespace malis_impl {
 
                 // return data
                 nifty::marray::PyView<DATA_TYPE, DIM+1> gradients(shape.begin(), shape.end());
-                initPyView(gradients);
 
                 DATA_TYPE loss = 0;
 
                 // call c++ function
                 {
                     py::gil_scoped_release allowThreads;
+
+                    initPyView(gradients);
                     compute_constrained_malis_gradient<DIM>(
                         affinities,
                         groundtruth,

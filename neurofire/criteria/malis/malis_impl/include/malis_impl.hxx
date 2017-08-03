@@ -79,6 +79,9 @@ void compute_malis_gradient(
         size_t nPairTot = (numberOfLabeledNodes * (numberOfLabeledNodes - 1)) / 2;
         nPairNorm = nPairTot - nPairPos;
     }
+    if(nPairNorm <= 0) {
+        throw std::runtime_error("Normalization is zero or negative!");
+    }
 
     // 2.) Sort all affinity edges in increasing order of weight
 
@@ -130,16 +133,15 @@ void compute_malis_gradient(
             gtCoordV[d - 1] = affCoord[d];
         }
 
-        // convention: edges encode the affinty to lower coordinates
-        if(gtCoordV[axis] > 0) {
-            --gtCoordV[axis];
-        }
-
         // convention: edges encode the affinty to higher coordinates
         //if(gtCoordV[axis] < pixelShape[axis] - 1) {
         //    ++gtCoordV[axis];
         //}
 
+        // convention: edges encode the affinty to lower coordinates
+        if(gtCoordV[axis] > 0) {
+            --gtCoordV[axis];
+        }
         else {
             continue;
         }
@@ -232,12 +234,7 @@ void compute_malis_gradient(
             }
 
             // normalize the gradients
-            if (nPairNorm > 0) {
-                gradientsOut(affCoord.asStdArray()) /= nPairNorm;
-            }
-            else {
-                gradientsOut(affCoord.asStdArray()) = 0;
-            }
+            gradientsOut(affCoord.asStdArray()) /= nPairNorm;
 
             // move the pixel bags of the non-representative to the representative
             if (sets.find(setU) == setV) // make setU the rep to keep and setV the rep to empty
@@ -299,13 +296,13 @@ void compute_constrained_malis_gradient(
     }
 
     // construct the affinities for negative and positive pass on the fly
-    nifty::marray::Marray<DataType> affinitiesPos(affShape.begin(), affShape.end());
-    nifty::marray::Marray<DataType> affinitiesNeg(affShape.begin(), affShape.end());
-    const int numberOfEdges = affinities.size();  // the number of edges corresponds to the number of affinities
+    // we don't need to initialize here, this is done below
+    nifty::marray::Marray<DataType> affinitiesPos(nifty::marray::SkipInitialization, affShape.begin(), affShape.end());
+    nifty::marray::Marray<DataType> affinitiesNeg(nifty::marray::SkipInitialization, affShape.begin(), affShape.end());
 
     size_t axis;
     Coord gtCoordU, gtCoordV;
-    AffinityCoord affCoord;
+    //AffinityCoord affCoord;
     LabelType labelU, labelV;
     DataType affinity;
 
@@ -317,14 +314,8 @@ void compute_constrained_malis_gradient(
     // this can be simplified a bit by only calculating the gtAffinity implcitly and setting
     // affintyPos = 0., affinityNeg = affinity if gtAffinity would be 0
     // affintyPos = affinity, affinityNeg = 1. if gtAffinity would be 1
-    for(size_t edgeIndex = 0; edgeIndex < numberOfEdges; edgeIndex++) {
+    nifty::tools::forEachCoordinate(affShape, [&](AffinityCoord affCoord) {
 
-        // TODO recheck
-        // translate edge index to coordinate
-        affCoord[0] = edgeIndex / affinities.strides(0);
-        for(int d = 1; d < DIM+1; ++d) {
-            affCoord[d] = (edgeIndex % affinities.strides(d-1) ) / affinities.strides(d);
-        }
         affinity = affinities(affCoord.asStdArray());
 
         // we change the V coordinate for the given axis (=corresponding coordinate)
@@ -337,21 +328,20 @@ void compute_constrained_malis_gradient(
             gtCoordV[d - 1] = affCoord[d];
         }
 
-        // convention: edges encode the affinty to lower coordinates
-        if(gtCoordV[axis] > 0) {
-            --gtCoordV[axis];
-        }
-
         // convention: edges encode the affinty to higher coordinates
         //if(gtCoordV[axis] < pixelShape[axis] - 1) {
         //    ++gtCoordV[axis];
         //}
 
+        // convention: edges encode the affinty to lower coordinates
+        if(gtCoordV[axis] > 0) {
+            --gtCoordV[axis];
+        }
         else {
             // the edge is invalid -> gtAffinity would be 0
             affinitiesPos(affCoord.asStdArray()) = 0.;
             affinitiesNeg(affCoord.asStdArray()) = affinity;
-            continue;
+            return;
         }
 
 
@@ -368,7 +358,33 @@ void compute_constrained_malis_gradient(
             affinitiesNeg(affCoord.asStdArray()) = 1.;
         }
 
-    }
+    });
+
+
+    // FIXME in-place adding of gradients yields different result for some reason I can't really explain...
+
+    //// TODO if we want to weight pos and neg differently, we need to pass a corresponding factor
+    //// to compute malis loss
+    //// calculate the gradients
+    //// note that gradients are added in-place to gradientsOut
+
+    //// calculate the positive malis gradients
+    //DataType lossPos, rand, classErr;
+    //compute_malis_gradient<DIM>(
+    //    affinitiesPos, groundtruth, true, gradientsOut, lossPos, classErr, rand
+    //);
+
+    //// calculate the negative malis gradients
+    //DataType lossNeg;
+    //compute_malis_gradient<DIM>(
+    //    affinitiesNeg, groundtruth, false, gradientsOut, lossNeg, classErr, rand
+    //);
+
+    //lossOut = (lossPos + lossNeg) / 2.;
+
+
+    nifty::marray::Marray<DataType> gradNeg(affShape.begin(), affShape.end(), 0);
+    nifty::marray::Marray<DataType> gradPos(affShape.begin(), affShape.end(), 0);
 
     // TODO if we want to weight pos and neg differently, we need to pass a corresponding factor
     // to compute malis loss
@@ -378,15 +394,17 @@ void compute_constrained_malis_gradient(
     // calculate the positive malis gradients
     DataType lossPos, rand, classErr;
     compute_malis_gradient<DIM>(
-        affinitiesPos, groundtruth, true, gradientsOut, lossPos, classErr, rand
+        affinitiesPos, groundtruth, true, gradPos, lossPos, classErr, rand
     );
 
     // calculate the negative malis gradients
     DataType lossNeg;
     compute_malis_gradient<DIM>(
-        affinitiesNeg, groundtruth, false, gradientsOut, lossNeg, classErr, rand
+        affinitiesNeg, groundtruth, false, gradNeg, lossNeg, classErr, rand
     );
 
+    gradientsOut = gradNeg + gradPos;
+    lossOut = (lossPos + lossNeg) / 2.;
 }
 
 }
