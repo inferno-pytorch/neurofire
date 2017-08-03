@@ -7,7 +7,7 @@ from inferno.utils.io_utils import yaml2dict
 
 from torch.utils.data.dataloader import DataLoader
 
-from .membranes import MembraneVolume
+from .membranes import MembraneVolume, AffinityVolume
 from .raw import RawVolume
 
 
@@ -16,17 +16,29 @@ class CREMIDataset(Zip):
         assert isinstance(volume_config, dict)
         assert isinstance(slicing_config, dict)
         assert 'raw' in volume_config
-        assert 'membranes' in volume_config
+        assert ('membranes' in volume_config) != ('affinities' in volume_config)
         # Get kwargs for raw volume
         raw_volume_kwargs = dict(volume_config.get('raw'))
         raw_volume_kwargs.update(slicing_config)
-        membrane_volume_kwargs = dict(volume_config.get('membranes'))
-        membrane_volume_kwargs.update(slicing_config)
-        # Build volumes
+        # Build raw volume
         self.raw_volume = RawVolume(name=name, **raw_volume_kwargs)
-        self.membrane_volume = MembraneVolume(name=name, **membrane_volume_kwargs)
+        # Get kwargs for membrane or affinity volumes
+        if 'membranes' in volume_config:
+            membrane_volume_kwargs = dict(volume_config.get('membranes'))
+            membrane_volume_kwargs.update(slicing_config)
+            # Build membrane volume
+            self.membrane_or_affinity_volume = MembraneVolume(name=name, **membrane_volume_kwargs)
+        elif 'affinities' in volume_config:
+            affinity_volume_kwargs = dict(volume_config.get('affinities'))
+            affinity_volume_kwargs.update(slicing_config)
+            # Build affinity volume
+            self.membrane_or_affinity_volume = AffinityVolume(name=name, **affinity_volume_kwargs)
+            pass
+        else:
+            raise NotImplementedError
         # Initialize zip
-        super(CREMIDataset, self).__init__(self.raw_volume, self.membrane_volume, sync=True)
+        super(CREMIDataset, self).__init__(self.raw_volume, self.membrane_or_affinity_volume,
+                                           sync=True)
         # Get transforms
         self.transforms = self.get_transforms()
 

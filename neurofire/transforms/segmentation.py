@@ -47,16 +47,16 @@ class Segmentation2Affinities(Transform):
                      'half': 'float16',
                      'float16': 'float16'}
 
-    def __init__(self, dim, dtype='float32', **super_kwargs):
+    def __init__(self, dim, dtype='float32', add_singleton_channel_dimension=False, **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
         # Privates
         self._shift_kernels = None
-        # Register dim
+        # Validate and register args
         assert dim in [2, 3]
-        self.dim = dim
-        # Register dtype
         assert dtype in self.DTYPE_MAPPING.keys()
+        self.dim = dim
         self.dtype = self.DTYPE_MAPPING.get(dtype)
+        self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
         # Build kernels
         self.build_shift_kernels()
 
@@ -121,8 +121,13 @@ class Segmentation2Affinities(Transform):
         return convolved
 
     def tensor_function(self, tensor):
+        # Add singleton channel dimension if requested
+        if self.add_singleton_channel_dimension:
+            tensor = tensor[None, ...]
         if tensor.ndim not in [3, 4]:
-            raise NotImplementedError("Affinity map generation is only supported in 2D and 3D.")
+            raise NotImplementedError("Affinity map generation is only supported in 2D and 3D. "
+                                      "Did you mean to set add_singleton_channel_dimension to "
+                                      "True?")
         if (tensor.ndim == 3 and self.dim == 2) or (tensor.ndim == 4 and self.dim == 3):
             # Convolve tensor with a shift kernel
             convolved_tensor = self.convolve_with_shift_kernel(tensor)

@@ -1,0 +1,70 @@
+# Specify the names of the datasets
+dataset_names:
+  - A
+  - B
+  - C
+
+# Specify how the data needs to be sliced before feeding to the network.
+# We use a 3D sliding window over the dataset to extract patches, which
+# are then fed to the network as batches.
+slicing_config:
+  # Sliding window size
+  window_size:
+    A: [5, 512, 512]
+    B: [5, 512, 512]
+    C: [5, 512, 512]
+  # Sliding window stride
+  stride:
+    A: [1, 256, 256]
+    B: [1, 256, 256]
+    C: [1, 256, 256]
+  # Sliding window downsampling ratio. The actual image size along a
+  # dimension is the window_size divided by the downsampling ratio.
+  # Example:
+  #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
+  #   slice shape = [1, 256, 256]
+  downsampling_ratio:
+    A: [1, 1, 1]
+    B: [1, 1, 1]
+    C: [1, 1, 1]
+  # Reflect padding on the loaded volume. Follows numpy.pad semantics.
+  padding:
+    A: [[1, 1], [15, 15], [15, 15]]
+    B: [[1, 1], [15, 15], [15, 15]]
+    C: [[1, 1], [15, 15], [15, 15]]
+  # Data slice to iterate over.
+  data_slice:
+    A: '0:80, :, :'
+    B: '0:80, :, :'
+    C: '0:80, :, :'
+
+# Specify paths to volumes
+volume_config:
+  # Raw data
+  raw:
+    path:
+      A: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_A_20160501.hdf'
+      B: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_B_20160501.hdf'
+      C: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_C_20160501.hdf'
+    # CREMI default is '/volumes/raw'
+    path_in_h5_dataset:
+      A: '/volumes/raw'
+      B: '/volumes/raw'
+      C: '/volumes/raw'
+    # Optionally, we specify training precision
+    dtype: float32
+  # Membranes
+  affinities:
+    path:
+      A: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_A_20160501.hdf'
+      B: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_B_20160501.hdf'
+      C: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_C_20160501.hdf'
+    # CREMI default is '/volumes/labels/neuron_ids'
+    path_in_h5_dataset:
+      A: '/volumes/labels/neuron_ids'
+      B: '/volumes/labels/neuron_ids'
+      C: '/volumes/labels/neuron_ids'
+    # Specify training precision
+    dtype: float32
+    # Dimensionality of the affinity computation
+    affinity_dim: 2
