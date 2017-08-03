@@ -30,8 +30,10 @@ class MalisLoss(Function):
     Malis Loss
     """
 
-    def __init__(self):
+    def __init__(self, dim=None, malis_dim='auto'):
         super(MalisLoss, self).__init__()
+        self._dim = dim
+        self._malis_dim = malis_dim
         self._intermediates = {}
 
     def _wrapper(self, affinities, groundtruth):
@@ -44,6 +46,25 @@ class MalisLoss(Function):
             affinities, groundtruth, False)
         return pos_gradients, neg_gradients
 
+    def parse_dim(self, affinities_ndim):
+        if self._dim is None:
+            self._dim = {5: 3, 4: 2}.get(affinities_ndim)
+
+    @property
+    def dim(self):
+        return self._dim
+
+    @property
+    def tensor_ndim(self):
+        return {2: 4, 3: 5}.get(self._dim)
+
+    @property
+    def malis_dim(self):
+        if self._malis_dim == 'auto':
+            return self._dim
+        else:
+            return self._malis_dim
+
     def forward(self, affinities, groundtruth):
         """
         Apply malis forward pass to get the loss gradient. The final loss function is then
@@ -52,32 +73,56 @@ class MalisLoss(Function):
         Parameters
         ----------
         affinities : torch.Tensor
-            The affinity tensor (the network output). Must be a 4D NCHW tensor, where C in {2, 3}.
+            The affinity tensor (the network output). Must be a 4D NCHW tensor where C = 2
+            or a 5D NCDHW tensor where C = 3 or C = 2.
         groundtruth : torch.Tensor
-            The ground truth tensor. Can be a 3D NHW tensor or a 4D NCHW tensor, where C = 1.
+            The ground truth tensor. Must be a 4D NCHW tensor or a 5D NCDHW tensor,
+            where C = 1.
 
         Returns
         -------
         loss: malis loss gradients
         """
-        # TODO insert asserts
+
         # Convert input to numpy
         affinities = affinities.numpy()
         groundtruth = groundtruth.numpy()
         # Validate
-        assert affinities.ndim == 4, "Affinity tensor must have 4 dimensions."
-        assert groundtruth.ndim in [3, 4], "Groundtruth tensor must have 3 or 4 dimensions."
-        assert affinities.shape[-2:] == groundtruth.shape[-2:], \
+        if self.dim is None:
+            assert affinities.ndim in [4, 5], "Affinity tensor must have 4 or 5 dimensions."
+            # Parse dim
+            self.parse_dim(affinities.ndim)
+        else:
+            assert affinities.ndim == self.tensor_ndim, \
+                "Affinity tensor must have {} dimensions, got {} instead." \
+                    .format(self.tensor_ndim, affinities.ndim)
+        assert groundtruth.ndim == self.tensor_ndim, \
+            "Groundtruth tensor must have {} dimensions, got {} instead." \
+                .format(self.tensor_ndim, groundtruth.ndim)
+        assert affinities.shape[-self.dim:] == groundtruth.shape[-self.dim:], \
             "Spatial shapes of affinities and groundtruth do not match."
-        assert affinities.shape[1] in [2, 3], \
+        assert affinities.shape[1] == self.malis_dim, \
             "Affinities must have 2 or 3 channels (for 2D and 3D affinities, respectively)"
         # Store shapes for backward
         self._intermediates.update({'affinities_shape': affinities.shape,
                                     'groundtruth_shape': groundtruth.shape})
-        # For consistency, account for a channel axis in the ground truth
-        if groundtruth.ndim == 4:
-            assert groundtruth.shape[1] == 1
-            groundtruth = groundtruth[:, 0, ...]
+        # We might want to use 2D malis for 3D volumes. This is especially true for non-realigned
+        # data where we want to use 3D context but evaluate MALIS only in 2D. In this case, we must
+        # consolidate the z and batch axes
+        z_as_batches = self.malis_dim == 2 and self.dim == 3
+
+        affinities_shape = affinities.shape
+        groundtruth_shape = groundtruth.shape
+        if z_as_batches:
+            affinities = affinities.swapaxes(1, 2).reshape((-1,
+                                                            affinities_shape[1],
+                                                            affinities_shape[3],
+                                                            affinities_shape[4]))
+            groundtruth = groundtruth.swapaxes(1, 2).reshape((-1,
+                                                             groundtruth_shape[1],
+                                                             groundtruth_shape[3],
+                                                             groundtruth_shape[4]))
+
         # Parallelize over the leading batch axis
         all_affinities = list(affinities)
         all_groundtruth = list(groundtruth)
@@ -89,6 +134,24 @@ class MalisLoss(Function):
         all_pos_gradients, all_neg_gradients = zip(*all_pos_and_neg_gradients)
         pos_gradients = np.array(all_pos_gradients)
         neg_gradients = np.array(all_neg_gradients)
+
+        # Now we might need to bring bring back the z axis
+        if z_as_batches:
+            pos_gradients = pos_gradients\
+                .reshape((affinities_shape[0],
+                          affinities_shape[2],
+                          affinities_shape[1],
+                          affinities_shape[3],
+                          affinities_shape[4]))\
+                .swapaxes(1, 2)
+            neg_gradients = neg_gradients \
+                .reshape((affinities_shape[0],
+                          affinities_shape[2],
+                          affinities_shape[1],
+                          affinities_shape[3],
+                          affinities_shape[4])) \
+                .swapaxes(1, 2)
+
         # save the combined gradient for the backward pass
         # the trailing .mul(1) makes a copy of the numpy tensor, without which pytorch segfaults
         # yes, i've aged figuring this out
