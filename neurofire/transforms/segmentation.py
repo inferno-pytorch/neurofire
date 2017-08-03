@@ -46,10 +46,13 @@ class Segmentation2Affinities(Transform):
                      'half': 'float16',
                      'float16': 'float16'}
 
-    def __init__(self, dtype='float32', **super_kwargs):
+    def __init__(self, dim, dtype='float32', **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
         # Privates
         self._shift_kernels = None
+        # Register dim
+        assert dim in [2, 3]
+        self.dim = dim
         # Register dtype
         assert dtype in self.DTYPE_MAPPING.keys()
         self.dtype = self.DTYPE_MAPPING.get(dtype)
@@ -57,44 +60,73 @@ class Segmentation2Affinities(Transform):
         self.build_shift_kernels()
 
     def build_shift_kernels(self):
-        # The kernels have a shape similar to conv kernels in torch. We have 3 output channels,
-        # corresponding to (depth, height, width)
-        shift_combined = np.zeros(shape=(3, 1, 3, 3, 3), dtype=self.dtype)
-        # Shift depth
-        shift_combined[0, 0, 0, 1, 1] = 1.
-        # Shift height
-        shift_combined[1, 0, 1, 0, 1] = 1.
-        # Shift width
-        shift_combined[2, 0, 1, 1, 0] = 1.
-        # Set
-        self._shift_kernels = shift_combined
+        if self.dim == 3:
+            # The kernels have a shape similar to conv kernels in torch. We have 3 output channels,
+            # corresponding to (depth, height, width)
+            shift_combined = np.zeros(shape=(3, 1, 3, 3, 3), dtype=self.dtype)
+            # Shift depth
+            shift_combined[0, 0, 0, 1, 1] = 1.
+            # Shift height
+            shift_combined[1, 0, 1, 0, 1] = 1.
+            # Shift width
+            shift_combined[2, 0, 1, 1, 0] = 1.
+            # Set
+            self._shift_kernels = shift_combined
+        elif self.dim == 2:
+            # Again, the kernels are similar to conv kernels in torch. We now have 2 output
+            # channels, corresponding to (height, width)
+            shift_combined = np.zeros(shape=(2, 1, 3, 3), dtype=self.dtype)
+            # Shift height
+            shift_combined[0, 0, 0, 1] = 1.
+            # Shift width
+            shift_combined[1, 0, 1, 0] = 1.
+            # Set
+            self._shift_kernels = shift_combined
+        else:
+            raise NotImplementedError
 
     def convolve_with_shift_kernel(self, tensor):
-        # Make sure the tensor is contains 3D volumes (i.e. is 4D) with the first axis
-        # being channel
-        assert tensor.ndim == 4, "Tensor must be 4D."
-        assert tensor.shape[0] == 1, "Tensor must have only one channel."
+        if self.dim == 3:
+            # Make sure the tensor is contains 3D volumes (i.e. is 4D) with the first axis
+            # being channel
+            assert tensor.ndim == 4, "Tensor must be 4D for dim = 3."
+            assert tensor.shape[0] == 1, "Tensor must have only one channel."
+            conv = torch.nn.functional.conv3d
+        elif self.dim == 2:
+            # Make sure the tensor contains 2D images (i.e. is 3D) with the first axis
+            # being channel
+            assert tensor.ndim == 3, "Tensor must be 3D for dim = 2."
+            assert tensor.shape[0] == 1, "Tensor must have only one channel."
+            conv = torch.nn.functional.conv2d
+        else:
+            raise NotImplementedError
         # Cast tensor to the right datatype
         if tensor.dtype != self.dtype:
             tensor = tensor.astype(self.dtype)
-        # Build torch variables of the right shape
+        # Build torch variables of the right shape (i.e. with a leading singleton batch axis)
         torch_tensor = torch.autograd.Variable(torch.from_numpy(tensor[None, ...]))
         torch_kernel = torch.autograd.Variable(torch.from_numpy(self._shift_kernels))
         # Apply convolution (with zero padding)
-        torch_convolved = torch.nn.functional.conv3d(input=torch_tensor,
-                                                     weight=torch_kernel,
-                                                     padding=1)
+        torch_convolved = conv(input=torch_tensor,
+                               weight=torch_kernel,
+                               padding=1)
         # Extract numpy array and get rid of the singleton batch dimension
         convolved = torch_convolved.data.numpy()[0, ...]
-        # The shape shouldn't have changed
-        assert convolved.shape[-3:] == tensor.shape[-3:]
         return convolved
 
     def tensor_function(self, tensor):
-        if tensor.ndim != 4:
-            raise NotImplementedError("Affinity map generation is only supported in 3D.")
-        # Convolve tensor with a shift kernel
-        convolved_tensor = self.convolve_with_shift_kernel(tensor)
+        if tensor.ndim not in [3, 4]:
+            raise NotImplementedError("Affinity map generation is only supported in 2D and 3D.")
+        if (tensor.ndim == 3 and self.dim == 2) or (tensor.ndim == 4 and self.dim == 3):
+            # Convolve tensor with a shift kernel
+            convolved_tensor = self.convolve_with_shift_kernel(tensor)
+        elif tensor.ndim == 4 and self.dim == 2:
+            # Tensor contains 3D volumes, but the affinity maps are computed in 2D. So we loop over
+            # all z-planes and concatenate the results together
+            convolved_tensor = np.stack([self.convolve_with_shift_kernel(tensor[:, z_num, ...])
+                                         for z_num in range(tensor.shape[1])], axis=1)
+        else:
+            raise NotImplementedError
         # Threshold convolved tensor
         binarized_affinities = np.where(convolved_tensor == 0., 1., 0.)
         # Cast to be sure
