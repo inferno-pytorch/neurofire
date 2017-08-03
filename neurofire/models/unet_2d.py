@@ -11,7 +11,7 @@ from inferno.extensions.layers.convolutional import ConvELU2D
 #
 # TODO batchnorm and different up-scaling schemes
 # TODO affinities and appropriate final activation (make parameter ?!)
-#
+# TODO from_config API
 
 
 class DownscaleLayer(nn.Module):
