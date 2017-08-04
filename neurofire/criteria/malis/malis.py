@@ -62,11 +62,13 @@ class MalisLoss(_MalisBase):
         # leading channel axis
         # fist, compute the positive loss and gradients
         pos_gradients, _, _, _ = malis_impl(
-            affinities, groundtruth[0], True)
+            np.require(affinities, requirements='C'),
+            np.require(groundtruth[0], requirements='C'), True)
 
         # next, compute the negative loss and gradients
         neg_gradients, _, _, _ = malis_impl(
-            affinities, groundtruth[0], False)
+            np.require(affinities, requirements='C'),
+            np.require(groundtruth[0], requirements='C'), False)
         return pos_gradients, neg_gradients
 
     def forward(self, affinities, groundtruth):
@@ -187,8 +189,6 @@ class ConstrainedMalisLoss(_MalisBase):
 
     def _wrapper(self, affinities, groundtruth):
         # The groundtruth has a leading channel axis which we need to get rid of
-        print("groundtruth[0].shape = ", groundtruth[0].shape)
-        print("affinities.shape = ", affinities.shape)
         gradients = constrained_malis_impl(np.require(affinities, requirements='C'),
                                            np.require(groundtruth[0], requirements='C'))
         return gradients

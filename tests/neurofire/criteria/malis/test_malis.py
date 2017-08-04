@@ -44,6 +44,7 @@ class TestMalis(unittest.TestCase):
         self.assertIsNotNone(affinities.grad)
 
     def test_malis_auto_loss_3d(self):
+        # This is slow
         affinities, ground_truth = self.generate_test_data(generate_2d=False)
         # Convert to variables
         affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
@@ -109,7 +110,7 @@ class TestMalis(unittest.TestCase):
         affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
         ground_truth = Variable(torch.from_numpy(ground_truth))
         # Build criterion
-        criterion = ConstrainedMalisLoss()
+        criterion = ConstrainedMalisLoss(malis_dim=2)
         # Evaluate criterion
         loss = criterion(affinities, ground_truth).sum()
         loss.backward()
@@ -131,6 +132,22 @@ class TestMalis(unittest.TestCase):
         # Validate
         self.assertIsNotNone(affinities.grad)
 
+    def test_malis_2d3d(self):
+        affinities, ground_truth = self.generate_test_data(generate_2d=False,
+                                                           reduce_num_affinity_channels=True)
+        # Convert to variables
+        affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
+        ground_truth = Variable(torch.from_numpy(ground_truth))
+        # Build criterion
+        malis = Malis(constrained=True, malis_dim=2)
+        # Forward and back
+        loss = malis(affinities, ground_truth)
+        loss.backward()
+        # Validate
+        self.assertIsNotNone(affinities.grad)
+        self.assertEqual(affinities.grad.size(1), 2)
+        self.assertEqual(affinities.grad.dim(), 5)
+
     def test_malis_gpu(self):
         if not torch.cuda.is_available():
             return
@@ -150,5 +167,5 @@ class TestMalis(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    TestMalis().test_constrained_malis_auto_loss_2d()
+    TestMalis().test_malis_auto_loss_3d()
     # unittest.main()
