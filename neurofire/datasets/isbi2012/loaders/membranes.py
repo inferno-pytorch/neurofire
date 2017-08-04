@@ -44,10 +44,9 @@ class MembraneVolumeHDF5(HDF5VolumeLoader):
         return transforms
 
 
-# TODO make segmentation for malis accessible ?!
 class AffinityVolumeHDF5(MembraneVolumeHDF5):
     def __init__(self, path, path_in_h5_dataset=None, data_slice=None, name=None,
-                 dtype='float32', affinity_dim=3, **slicing_config):
+                 dtype='float32', affinity_dim=2, **slicing_config):
         # Set attributes
         self.affinity_dim = affinity_dim
         # Initialize super
@@ -64,3 +63,6 @@ class AffinityVolumeHDF5(MembraneVolumeHDF5):
                                                      add_singleton_channel_dimension=True),
                              Cast(self.dtype))
         return transforms
+
+
+# TODO Segmentation for malis
