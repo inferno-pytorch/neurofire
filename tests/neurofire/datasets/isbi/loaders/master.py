@@ -41,8 +41,9 @@ class TestMaster(unittest.TestCase):
         batch = dataset[0]
         # Validate
         self.assertEqual(len(batch), 2)
-        for _batch in batch:
-            self.assertEqual(list(_batch.size()), [1, 576, 576])  # batch axis added by loader
+
+        self.assertEqual(list(batch[0].size()), [1, 576, 576])
+        self.assertEqual(list(batch[1].size()), [2, 576, 576])
         # Print to file
         if os.path.exists(self.PLOT_DIRECTORY):
             assert os.path.isdir(self.PLOT_DIRECTORY)
