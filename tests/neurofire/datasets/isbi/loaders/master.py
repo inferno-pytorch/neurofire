@@ -4,6 +4,8 @@ import unittest
 
 class TestMaster(unittest.TestCase):
     DATA_CONFIG = os.path.join(os.path.dirname(__file__), 'data_config_test.yml')
+    DATA_CONFIG_AFFINITIES = os.path.join(os.path.dirname(__file__),
+                                          'data_config_test_affinities.yml')
     PLOT_DIRECTORY = os.path.join(os.path.dirname(__file__), 'plots')
 
     def test_master(self):
@@ -30,6 +32,14 @@ class TestMaster(unittest.TestCase):
                      directory=self.PLOT_DIRECTORY)
         print("Plots printed to {}.".format(self.PLOT_DIRECTORY))
 
+    def test_master_affinity(self):
+        from neurofire.datasets.isbi2012.loaders.master import ISBI2012DatasetHDF5
+        dataset = ISBI2012DatasetHDF5.from_config(self.DATA_CONFIG_AFFINITIES)
+        # Get from dataset
+        batch = dataset[0]
+        # Validate
+        self.assertEqual(len(batch), 2)
+
 
 if __name__ == '__main__':
-    TestMaster().test_master()
+    TestMaster().test_master_affinity()
