@@ -58,9 +58,9 @@ class AffinityVolumeHDF5(MembraneVolumeHDF5):
         del self.nedt_gain
 
     def get_transforms(self):
-        # The Segmentation2Affinities adds a channel dimension
+        # FIXME understand why add_singleton_channel_dimension should be False
         transforms = Compose(Segmentation2Affinities(self.affinity_dim,
-                                                     add_singleton_channel_dimension=True),
+                                                     add_singleton_channel_dimension=False),
                              Cast(self.dtype))
         return transforms
 
