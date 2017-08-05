@@ -30,6 +30,5 @@ class TestMaster(unittest.TestCase):
                      directory=self.PLOT_DIRECTORY)
         print("Plots printed to {}.".format(self.PLOT_DIRECTORY))
 
-
 if __name__ == '__main__':
     TestMaster().test_master()
