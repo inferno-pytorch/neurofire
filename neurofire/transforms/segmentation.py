@@ -3,7 +3,12 @@ import torch
 
 from scipy.ndimage import convolve
 from scipy.ndimage.morphology import distance_transform_edt
-from scipy.ndimage.measurements import label
+try:
+    import vigra
+    with_vigra = True
+except ImportError:
+    print("Vigra was not found, connected components will not be available")
+    with_vigra = False
 
 from inferno.io.transform import Transform
 
@@ -154,7 +159,9 @@ class ConnectedComponents2D(Transform):
     Apply connected components on segmentation in 2D.
     """
     def image_function(self, image):
-        connected_components, _ = label(image)
+        if not with_vigra:
+            raise ImportError("Connected components is not supported without vigra")
+        connected_components = vigra.analysis.labelImageWithBackground(image)
         return connected_components
 
 
@@ -163,5 +170,7 @@ class ConnectedComponents3D(Transform):
     Apply connected components on segmentation in 3D.
     """
     def volume_function(self, volume):
-        connected_components, _ = label(volume)
+        if not with_vigra:
+            raise ImportError("Connected components is not supported without vigra")
+        connected_components = vigra.analysis.labelVolumeWithBackground(image)
         return connected_components
