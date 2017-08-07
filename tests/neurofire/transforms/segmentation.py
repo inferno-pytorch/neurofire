@@ -44,8 +44,8 @@ class TestSegmentation(unittest.TestCase):
         aff[0, 0, :] = 0.
         aff[1, :, 0] = 0.
 
-        print(segmentation)
-        print(aff[0])
+        #print(segmentation)
+        #print(aff[0])
         #print(aff[1])
 
         return segmentation, aff
@@ -105,7 +105,7 @@ class TestSegmentation(unittest.TestCase):
         transform = seg.Segmentation2Affinities(dim=2)
         output = transform(segmentation[None, :]).squeeze()
         #print(output[0])
-        print(output[0])
+        #print(output[0])
         self.assertEqual(output.shape, expected.shape)
         self.assertTrue((output == expected).all())
 
@@ -161,8 +161,8 @@ class TestSegmentation(unittest.TestCase):
         self.assertEqual(output.shape, output_expected.shape)
         self.assertTrue((output == output_expected).all())
 
+
     def test_cc_2d(self):
-        cc = seg.ConnectedComponents2D()
         x = np.array(
             [[1, 1, 0, 1, 1],
              [1, 1, 0, 0, 1],
@@ -171,13 +171,15 @@ class TestSegmentation(unittest.TestCase):
              [0, 1, 1, 1, 1]],
             dtype='uint32'
         )
-        y = cc(x)
-        self.assertEqual(y.shape, x.shape)
-        uniques = np.unique(y).tolist()
-        self.assertEqual(uniques, [0, 1, 2, 3])
+        for label_segmentation in (False, True):
+            cc = seg.ConnectedComponents2D(label_segmentation=label_segmentation)
+            y = cc(x)
+            self.assertEqual(y.shape, x.shape)
+            uniques = np.unique(y).tolist()
+            self.assertEqual(uniques, [0, 1, 2, 3])
+
 
     def test_cc_3d(self):
-        cc = seg.ConnectedComponents3D()
         x = np.array(
             [[[1, 1, 0],
               [1, 0, 0],
@@ -190,10 +192,26 @@ class TestSegmentation(unittest.TestCase):
               [0, 0, 0]]],
             dtype='uint32'
         )
+        for label_segmentation in (False, True):
+            cc = seg.ConnectedComponents3D(label_segmentation=label_segmentation)
+            y = cc(x)
+            self.assertEqual(y.shape, x.shape)
+            uniques = np.unique(y).tolist()
+            self.assertEqual(uniques, [0, 1, 2, 3, 4])
+
+
+    def test_cc_label_segmentation(self):
+        x = np.array(
+            [[1, 2, 1],
+             [1, 1, 1],
+             [1, 2, 1]],
+            dtype='uint32'
+        )
+        cc = seg.ConnectedComponents2D(label_segmentation=True)
         y = cc(x)
         self.assertEqual(y.shape, x.shape)
         uniques = np.unique(y).tolist()
-        self.assertEqual(uniques, [0, 1, 2, 3, 4])
+        self.assertEqual(uniques, [1, 2, 3])
 
 
 if __name__ == '__main__':
