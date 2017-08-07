@@ -5,15 +5,18 @@ from scipy.ndimage import convolve
 from scipy.ndimage.morphology import distance_transform_edt
 from scipy.ndimage.measurements import label
 
+from inferno.io.transform import Transform
+
+import logging
+logger = logging.getLogger(__name__)
+
 try:
     import vigra
     with_vigra = True
 except ImportError:
-    print("Vigra was not found, connected components will not be available")
+    logger.warn("Vigra was not found, connected components will not be available")
     vigra = None
     with_vigra = False
-
-from inferno.io.transform import Transform
 
 
 class Segmentation2Membranes(Transform):
