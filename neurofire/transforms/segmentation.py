@@ -1,7 +1,10 @@
 import numpy as np
 import torch
+
 from scipy.ndimage import convolve
 from scipy.ndimage.morphology import distance_transform_edt
+from scipy.ndimage.measurements import label
+
 from inferno.io.transform import Transform
 
 
@@ -144,3 +147,21 @@ class Segmentation2Affinities(Transform):
         if not binarized_affinities.dtype == self.dtype:
             binarized_affinities = binarized_affinities.astype(self.dtype)
         return binarized_affinities
+
+
+class ConnectedComponents2D(Transform):
+    """
+    Apply connected components on segmentation in 2D.
+    """
+    def image_function(self, image):
+        connected_components, _ = label(image)
+        return connected_components
+
+
+class ConnectedComponents3D(Transform):
+    """
+    Apply connected components on segmentation in 3D.
+    """
+    def volume_function(self, volume):
+        connected_components, _ = label(volume)
+        return connected_components

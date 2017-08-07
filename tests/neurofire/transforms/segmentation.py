@@ -161,6 +161,40 @@ class TestSegmentation(unittest.TestCase):
         self.assertEqual(output.shape, output_expected.shape)
         self.assertTrue((output == output_expected).all())
 
+    def test_cc_2d(self):
+        cc = seg.ConnectedComponents2D()
+        x = np.array(
+            [[1, 1, 0, 1, 1],
+             [1, 1, 0, 0, 1],
+             [1, 0, 1, 0, 0],
+             [1, 0, 1, 1, 0],
+             [0, 1, 1, 1, 1]],
+            dtype='uint32'
+        )
+        y = cc(x)
+        self.assertEqual(y.shape, x.shape)
+        uniques = np.unique(y).tolist()
+        self.assertEqual(uniques, [0, 1, 2, 3])
+
+    def test_cc_3d(self):
+        cc = seg.ConnectedComponents3D()
+        x = np.array(
+            [[[1, 1, 0],
+              [1, 0, 0],
+              [0, 0, 1]],
+             [[1, 0, 0],
+              [0, 1, 0],
+              [0, 0, 0]],
+             [[1, 0, 1],
+              [0, 0, 0],
+              [0, 0, 0]]],
+            dtype='uint32'
+        )
+        y = cc(x)
+        self.assertEqual(y.shape, x.shape)
+        uniques = np.unique(y).tolist()
+        self.assertEqual(uniques, [0, 1, 2, 3, 4])
+
 
 if __name__ == '__main__':
     unittest.main()
