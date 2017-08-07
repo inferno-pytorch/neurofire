@@ -308,10 +308,6 @@ class Malis(nn.Module):
         self._malis_dim = malis_dim
         self._constrained = constrained
         self.device_transfer = DeviceTransfer('cpu')
-        if constrained:
-            self.malis_loss = ConstrainedMalisLoss(malis_dim=malis_dim)
-        else:
-            self.malis_loss = MalisLoss(malis_dim=malis_dim)
 
     @property
     def constrained(self):
@@ -324,6 +320,9 @@ class Malis(nn.Module):
     # noinspection PyCallingNonCallable
     def forward(self, input, target):
         input, target = self.device_transfer(input, target)
-        loss_gradients = self.malis_loss(input, target)
+        if self.constrained:
+            loss_gradients = ConstrainedMalisLoss(malis_dim=self.malis_dim)(input, target)
+        else:
+            loss_gradients = MalisLoss(malis_dim=self.malis_dim)(input, target)
         pseudo_loss = loss_gradients.sum()
         return pseudo_loss

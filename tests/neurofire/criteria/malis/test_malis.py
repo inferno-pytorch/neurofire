@@ -148,6 +148,30 @@ class TestMalis(unittest.TestCase):
         self.assertEqual(affinities.grad.size(1), 2)
         self.assertEqual(affinities.grad.dim(), 5)
 
+    def test_malis_twice(self):
+        affinities, ground_truth = self.generate_test_data()
+        # Convert to variables
+        affinities = Variable(torch.from_numpy(affinities), requires_grad=True)
+        ground_truth = Variable(torch.from_numpy(ground_truth))
+        # Build criterion
+        malis = Malis(constrained=True)
+        # Forward and back
+        loss = malis(affinities, ground_truth)
+        loss.backward()
+        # Validate
+        self.assertIsNotNone(affinities.grad)
+        # Try again to see if the cache is cleared
+        # Convert to variables
+        affinities = Variable(affinities.data, requires_grad=True)
+        ground_truth = Variable(ground_truth.data)
+        # Build criterion
+        malis = Malis(constrained=True)
+        # Forward and back
+        loss = malis(affinities, ground_truth)
+        loss.backward()
+        # Validate
+        self.assertIsNotNone(affinities.grad)
+
     def test_malis_gpu(self):
         if not torch.cuda.is_available():
             return
