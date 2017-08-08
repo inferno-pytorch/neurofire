@@ -14,6 +14,8 @@ class Pretrain(Callback):
         self._training_criterion = {}
         self._pretraining_optimizer = {}
         self._training_optimizer = {}
+        self._train_loader = None
+        self._pretrain_loader = None
         self._is_pretraining = True
         self._save_pretrained_model = save_pretrained_model
         # Publics
@@ -53,14 +55,34 @@ class Pretrain(Callback):
         self._training_optimizer.update(kwargs)
         return self
 
+    def set_training_loader(self, train_loader):
+        self._train_loader = train_loader
+        return self
+
+    def set_pretraining_loader(self, pretrain_loader):
+        self._pretrain_loader = pretrain_loader
+        return self
+
     def begin_of_fit(self, **_):
         self.trainer.build_criterion(**self._pretraining_criterion)
         self.trainer.build_optimizer(**self._pretraining_optimizer)
+        # Bind train loader
+        if self._pretrain_loader is not None:
+            self.trainer.bind_loader('train', self._pretrain_loader)
 
     def save_pretrained_model(self):
         if self._save_pretrained_model:
             torch.save(self.trainer.model, join(self.trainer.save_directory, 'pretrained.pytorch'),
                        pickle_module=dill)
+
+    def finish_pretraining(self):
+        self.save_pretrained_model()
+        self.trainer.print("Pretraining done. Building criterion and optimizer for training.")
+        self.trainer.build_criterion(**self._training_criterion)
+        self.trainer.build_optimizer(**self._training_optimizer)
+        # Bind train loader
+        if self._train_loader is not None:
+            self.trainer.bind_loader('train', self._train_loader)
 
     def begin_of_training_iteration(self, **_):
         # Check if pretraining time is up
@@ -69,14 +91,12 @@ class Pretrain(Callback):
             # If the following is false once, we never enter this branch again
             self._is_pretraining = \
                 not self._duration.match(iteration_count=self.trainer.iteration_count,
-                                         epoch_count=self.trainer.epoch_count)
+                                         epoch_count=self.trainer.epoch_count,
+                                         match_zero=False)
             stopped_pretraining_this_iteration = not self._is_pretraining
 
         if stopped_pretraining_this_iteration:
-            self.save_pretrained_model()
-            self.trainer.print("Pretraining done. Building criterion and optimizer for training.")
-            self.trainer.build_criterion(**self._training_criterion)
-            self.trainer.build_optimizer(**self._training_optimizer)
+            self.finish_pretraining()
 
     def begin_of_epoch(self, **_):
         # Check if pretraining time is up
@@ -85,11 +105,9 @@ class Pretrain(Callback):
             # If the following is false once, we never enter this branch again
             self._is_pretraining = \
                 not self._duration.match(iteration_count=self.trainer.iteration_count,
-                                         epoch_count=self.trainer.epoch_count)
+                                         epoch_count=self.trainer.epoch_count,
+                                         match_zero=False)
             stopped_pretraining_this_epoch = not self._is_pretraining
 
         if stopped_pretraining_this_epoch:
-            self.save_pretrained_model()
-            self.trainer.print("Pretraining done. Building criterion and optimizer for training.")
-            self.trainer.build_criterion(**self._training_criterion)
-            self.trainer.build_optimizer(**self._training_optimizer)
+            self.finish_pretraining()
