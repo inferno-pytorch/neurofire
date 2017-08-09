@@ -14,6 +14,10 @@ class Pretrain(Callback):
         self._training_criterion = {}
         self._pretraining_optimizer = {}
         self._training_optimizer = {}
+        self._pretraining_metric = {}
+        self._pretraining_validation_frequency_kwargs = {}
+        self._training_validation_frequency_kwargs = {}
+        self._training_metric = {}
         self._train_loader = None
         self._pretrain_loader = None
         self._is_pretraining = True
@@ -55,6 +59,26 @@ class Pretrain(Callback):
         self._training_optimizer.update(kwargs)
         return self
 
+    def set_pretraining_metric(self, method, **kwargs):
+        self._pretraining_metric.update({'method': method})
+        self._pretraining_metric.update(kwargs)
+        return self
+
+    def set_training_metric(self, method, **kwargs):
+        self._training_metric.update({'method': method})
+        self._training_metric.update(kwargs)
+        return self
+
+    def set_pretraining_validation_frequency(self, frequency, for_num_iterations=None):
+        self._pretraining_validation_frequency_kwargs\
+            .update({'frequency': frequency, 'for_num_iterations': for_num_iterations})
+        return self
+
+    def set_training_validation_frequency(self, frequency, for_num_iterations=None):
+        self._training_validation_frequency_kwargs \
+            .update({'frequency': frequency, 'for_num_iterations': for_num_iterations})
+        return self
+
     def set_training_loader(self, train_loader):
         self._train_loader = train_loader
         return self
@@ -66,6 +90,12 @@ class Pretrain(Callback):
     def begin_of_fit(self, **_):
         self.trainer.build_criterion(**self._pretraining_criterion)
         self.trainer.build_optimizer(**self._pretraining_optimizer)
+        # Build metric
+        if self._pretraining_metric:
+            self.trainer.build_metric(**self._pretraining_metric)
+        # Set validation frequency
+        if self._pretraining_validation_frequency_kwargs:
+            self.trainer.validate_every(**self._pretraining_validation_frequency_kwargs)
         # Bind train loader
         if self._pretrain_loader is not None:
             self.trainer.bind_loader('train', self._pretrain_loader)
@@ -80,6 +110,12 @@ class Pretrain(Callback):
         self.trainer.print("Pretraining done. Building criterion and optimizer for training.")
         self.trainer.build_criterion(**self._training_criterion)
         self.trainer.build_optimizer(**self._training_optimizer)
+        # Build metric
+        if self._training_metric:
+            self.trainer.build_metric(**self._training_metric)
+        # Set validation frequency
+        if self._training_validation_frequency_kwargs:
+            self.trainer.validate_every(**self._training_validation_frequency_kwargs)
         # Bind train loader
         if self._train_loader is not None:
             self.trainer.bind_loader('train', self._train_loader)
