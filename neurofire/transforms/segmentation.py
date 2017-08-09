@@ -130,7 +130,7 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # we apply a dilated convolution.
         torch_convolved = conv(input=torch_tensor,
                                weight=torch_kernel,
-                               padding=1,
+                               padding=self.order,
                                dilation=self.order)
         # Extract numpy array and get rid of the singleton batch dimension
         convolved = torch_convolved.data.numpy()[0, ...]
