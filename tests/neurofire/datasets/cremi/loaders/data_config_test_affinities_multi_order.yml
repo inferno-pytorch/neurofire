@@ -10,14 +10,14 @@ dataset_names:
 slicing_config:
   # Sliding window size
   window_size:
-    A: [5, 512, 512]
-    B: [5, 512, 512]
-    C: [5, 512, 512]
+    A: [5, 576, 576]
+    B: [5, 576, 576]
+    C: [5, 576, 576]
   # Sliding window stride
   stride:
-    A: [1, 256, 256]
-    B: [1, 256, 256]
-    C: [1, 256, 256]
+    A: [1, 352, 352]
+    B: [1, 352, 352]
+    C: [1, 352, 352]
   # Sliding window downsampling ratio. The actual image size along a
   # dimension is the window_size divided by the downsampling ratio.
   # Example:
@@ -70,3 +70,14 @@ volume_config:
     affinity_dim: 2
     affinity_order: [1, 4, 8, 16]
     retain_segmentation: true
+
+
+# Configuration for the master dataset.
+master_config:
+  # We might need order 0 interpolation if we have segmentation in there somewhere.
+  elastic_transform:
+    alpha: 2000.
+    sigma: 50.
+    order: 0
+  crop_after_elastic_transform:
+    size: 512
