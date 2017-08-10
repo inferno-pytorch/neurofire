@@ -33,10 +33,12 @@ class MembraneVolume(HDF5VolumeLoader):
 
 class AffinityVolume(MembraneVolume):
     def __init__(self, path, path_in_h5_dataset=None, data_slice=None, name=None,
-                 dtype='float32', affinity_dim=3, affinity_order=1, **slicing_config):
+                 dtype='float32', affinity_dim=3, affinity_order=1, retain_segmentation=False,
+                 **slicing_config):
         # Set attributes
         self.affinity_dim = affinity_dim
         self.affinity_order = affinity_order
+        self.retain_segmentation = retain_segmentation
         # Initialize super
         super(AffinityVolume, self).__init__(path, path_in_h5_dataset=path_in_h5_dataset,
                                              data_slice=data_slice, name=name,
@@ -53,10 +55,13 @@ class AffinityVolume(MembraneVolume):
         if pyu.robust_len(self.affinity_order) == 1:
             transforms.add(Segmentation2Affinities(dim=self.affinity_dim,
                                                    order=pyu.from_iterable(self.affinity_order),
-                                                   add_singleton_channel_dimension=True))
+                                                   add_singleton_channel_dimension=True,
+                                                   retain_segmentation=self.retain_segmentation))
         else:
-            transforms.add(Segmentation2MultiOrderAffinities(dim=self.affinity_dim,
-                                                             orders=self.affinity_order,
-                                                             add_singleton_channel_dimension=True))
+            transforms.add(
+                Segmentation2MultiOrderAffinities(dim=self.affinity_dim,
+                                                  orders=self.affinity_order,
+                                                  add_singleton_channel_dimension=True,
+                                                  retain_segmentation=self.retain_segmentation))
         transforms.add(Cast(self.dtype))
         return transforms

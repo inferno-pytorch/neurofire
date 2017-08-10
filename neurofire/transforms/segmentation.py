@@ -6,6 +6,7 @@ from scipy.ndimage.morphology import distance_transform_edt
 from scipy.ndimage.measurements import label
 
 from inferno.io.transform import Transform
+import inferno.utils.python_utils as pyu
 
 import logging
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class NegativeExponentialDistanceTransform(Transform):
 class Segmentation2Affinities(Transform, DtypeMapping):
     """Convert dense segmentation to affinity-maps of arbitrary order."""
     def __init__(self, dim, order=1, dtype='float32', add_singleton_channel_dimension=False,
-                 **super_kwargs):
+                 retain_segmentation=False, **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
         # Privates
         self._shift_kernels = None
@@ -71,14 +72,16 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         self.dtype = self.DTYPE_MAPPING.get(dtype)
         self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
         self.order = order
+        self.retain_segmentation = retain_segmentation
         # Build kernels
-        self.build_shift_kernels()
+        self._shift_kernels = self.build_shift_kernels(dim=self.dim, dtype=self.dtype)
 
-    def build_shift_kernels(self):
-        if self.dim == 3:
+    @staticmethod
+    def build_shift_kernels(dim, dtype):
+        if dim == 3:
             # The kernels have a shape similar to conv kernels in torch. We have 3 output channels,
             # corresponding to (depth, height, width)
-            shift_combined = np.zeros(shape=(3, 1, 3, 3, 3), dtype=self.dtype)
+            shift_combined = np.zeros(shape=(3, 1, 3, 3, 3), dtype=dtype)
             # Shift depth
             shift_combined[0, 0, 0, 1, 1] = 1.
             shift_combined[0, 0, 1, 1, 1] = -1.
@@ -89,11 +92,11 @@ class Segmentation2Affinities(Transform, DtypeMapping):
             shift_combined[2, 0, 1, 1, 0] = 1.
             shift_combined[2, 0, 1, 1, 1] = -1.
             # Set
-            self._shift_kernels = shift_combined
-        elif self.dim == 2:
+            return shift_combined
+        elif dim == 2:
             # Again, the kernels are similar to conv kernels in torch. We now have 2 output
             # channels, corresponding to (height, width)
-            shift_combined = np.zeros(shape=(2, 1, 3, 3), dtype=self.dtype)
+            shift_combined = np.zeros(shape=(2, 1, 3, 3), dtype=dtype)
             # Shift height
             shift_combined[0, 0, 0, 1] = 1.
             shift_combined[0, 0, 1, 1] = -1.
@@ -101,7 +104,7 @@ class Segmentation2Affinities(Transform, DtypeMapping):
             shift_combined[1, 0, 1, 0] = 1.
             shift_combined[1, 0, 1, 1] = -1.
             # Set
-            self._shift_kernels = shift_combined
+            return shift_combined
         else:
             raise NotImplementedError
 
@@ -159,7 +162,16 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # Cast to be sure
         if not binarized_affinities.dtype == self.dtype:
             binarized_affinities = binarized_affinities.astype(self.dtype)
-        return binarized_affinities
+        # We might want to carry the segmentation along (e.g. when combining MALIS with
+        # euclidean loss higher-order affinities). If this is the case, we insert the segmentation
+        # as the *first* channel.
+        if self.retain_segmentation:
+            if tensor.dtype != self.dtype:
+                tensor = tensor.astype(self.dtype)
+            output = np.concatenate((tensor, binarized_affinities), axis=0)
+        else:
+            output = binarized_affinities
+        return output
 
 
 class Segmentation2MultiOrderAffinities(Transform):
@@ -168,13 +180,22 @@ class Segmentation2MultiOrderAffinities(Transform):
     are concatenated along the leading (= channel) axis.
     """
     def __init__(self, dim, orders, dtype='float32', add_singleton_channel_dimension=False,
-                 **super_kwargs):
+                 retain_segmentation=False, **super_kwargs):
         super(Segmentation2MultiOrderAffinities, self).__init__(**super_kwargs)
+        assert pyu.is_listlike(orders), "`orders` must be a list or a tuple."
+        assert len(orders) > 0, "`orders` must not be empty."
         # Build Segmentation2Affinity objects
         self._segmentation2affinities_objects = [
             Segmentation2Affinities(dim, order=order, dtype=dtype,
                                     add_singleton_channel_dimension=add_singleton_channel_dimension)
             for order in orders]
+        # Have the first segmentation2affinities object retain the segmentation if required
+        if retain_segmentation:
+            self._segmentation2affinities_objects[0].retain_segmentation = True
+
+    @property
+    def retain_segmentation(self):
+        return self._segmentation2affinities_objects[0].retain_segmentation
 
     @property
     def dim(self):

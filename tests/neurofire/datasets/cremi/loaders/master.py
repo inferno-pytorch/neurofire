@@ -93,7 +93,7 @@ class TestMaster(unittest.TestCase):
         self.assertEqual(len(batch), 2)
         self.assertEqual(list(batch[0].size()), [1, 5, 512, 512])
         self.assertEqual(list(batch[1].size())[1:], [5, 512, 512])
-        self.assertIn(batch[1].size(0), [2 * 4, 3 * 4])
+        self.assertIn(batch[1].size(0), [2 * 4, 3 * 4, (2 * 4) + 1, (3 * 4) + 1])
         # Print to file
         if os.path.exists(self.PLOT_DIRECTORY):
             assert os.path.isdir(self.PLOT_DIRECTORY)
