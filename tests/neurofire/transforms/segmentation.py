@@ -51,7 +51,7 @@ class TestSegmentation(unittest.TestCase):
         return segmentation, aff
 
 
-    def affinities_brute_force(self, segmentation, dtype):
+    def affinities_brute_force(self, segmentation, dtype, order=1):
         ndim = segmentation.ndim
         affinities = np.zeros((ndim,) + segmentation.shape, dtype=dtype)
 
@@ -72,8 +72,8 @@ class TestSegmentation(unittest.TestCase):
             coord_u, coord_v = coord[1:], coord[1:]
 
             # lower the v coordinate if it is valid, otherwise continue
-            if(coord_v[axis] > 0):
-                coord_v[axis] -= 1
+            if((coord_v[axis] - order) >= 0):
+                coord_v[axis] -= order
             else:
                 continue
 
@@ -137,29 +137,32 @@ class TestSegmentation(unittest.TestCase):
     def test_segmentation2affinitiy_2D(self):
         segmentation = self.generate_segmentation()
 
-        # output from the segmentation module
-        transform = seg.Segmentation2Affinities(dim=2)
-        output = transform(segmentation).squeeze()
+        for order in (1, 2, 3, 5, 7, 20):
+            # output from the segmentation module
+            transform = seg.Segmentation2Affinities(dim=2, order=order)
+            output = transform(segmentation).squeeze()
 
-        # brute force loop
-        output_expected = self.affinities_brute_force(segmentation.squeeze(), output.dtype)
+            # brute force loop
+            output_expected = self.affinities_brute_force(segmentation.squeeze(), output.dtype, order)
 
-        self.assertEqual(output.shape, output_expected.shape)
-        self.assertTrue((output == output_expected).all())
+            self.assertEqual(output.shape, output_expected.shape)
+            self.assertTrue((output == output_expected).all())
 
 
     def test_segmentation2affinitiy_3D(self):
         segmentation = self.generate_segmentation(False)
 
-        # output from the segmentation module
-        transform = seg.Segmentation2Affinities(dim=3)
-        output = transform(segmentation).squeeze()
+        for order in (1, 2, 3, 5, 7, 20):
+            #print('Testing order', order, 'affinities in 3d')
+            # output from the segmentation module
+            transform = seg.Segmentation2Affinities(dim=3, order=order)
+            output = transform(segmentation).squeeze()
 
-        # brute force loop
-        output_expected = self.affinities_brute_force(segmentation.squeeze(), output.dtype)
+            # brute force loop
+            output_expected = self.affinities_brute_force(segmentation.squeeze(), output.dtype, order)
 
-        self.assertEqual(output.shape, output_expected.shape)
-        self.assertTrue((output == output_expected).all())
+            self.assertEqual(output.shape, output_expected.shape)
+            self.assertTrue((output == output_expected).all())
 
 
     def test_cc_2d(self):

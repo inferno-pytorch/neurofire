@@ -19,7 +19,7 @@ except ImportError:
     with_vigra = False
 
 
-class Segmentation2Membranes(Transform):
+class DtypeMapping(object):
     DTYPE_MAPPING = {'float32': 'float32',
                      'float': 'float32',
                      'double': 'float64',
@@ -27,6 +27,9 @@ class Segmentation2Membranes(Transform):
                      'half': 'float16',
                      'float16': 'float16'}
 
+
+class Segmentation2Membranes(Transform, DtypeMapping):
+    """Convert dense segmentation to boundary-maps (or membranes)."""
     def __init__(self, dtype='float32', **super_kwargs):
         super(Segmentation2Membranes, self).__init__(**super_kwargs)
         assert dtype in self.DTYPE_MAPPING.keys()
@@ -39,6 +42,7 @@ class Segmentation2Membranes(Transform):
 
 
 class NegativeExponentialDistanceTransform(Transform):
+    """'Smooth' e.g. membranes by applying a negative exponential on the distance transform."""
     def __init__(self, gain=1., invert=True, **super_kwargs):
         super(NegativeExponentialDistanceTransform, self).__init__(**super_kwargs)
         self.invert = invert
@@ -53,15 +57,10 @@ class NegativeExponentialDistanceTransform(Transform):
             return 1-np.exp(-self.gain * distance_transform_edt(image))
 
 
-class Segmentation2Affinities(Transform):
-    DTYPE_MAPPING = {'float32': 'float32',
-                     'float': 'float32',
-                     'double': 'float64',
-                     'float64': 'float64',
-                     'half': 'float16',
-                     'float16': 'float16'}
-
-    def __init__(self, dim, dtype='float32', add_singleton_channel_dimension=False, **super_kwargs):
+class Segmentation2Affinities(Transform, DtypeMapping):
+    """Convert dense segmentation to affinity-maps of arbitrary order."""
+    def __init__(self, dim, order=1, dtype='float32', add_singleton_channel_dimension=False,
+                 **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
         # Privates
         self._shift_kernels = None
@@ -71,6 +70,7 @@ class Segmentation2Affinities(Transform):
         self.dim = dim
         self.dtype = self.DTYPE_MAPPING.get(dtype)
         self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
+        self.order = order
         # Build kernels
         self.build_shift_kernels()
 
@@ -126,10 +126,12 @@ class Segmentation2Affinities(Transform):
         # Build torch variables of the right shape (i.e. with a leading singleton batch axis)
         torch_tensor = torch.autograd.Variable(torch.from_numpy(tensor[None, ...]))
         torch_kernel = torch.autograd.Variable(torch.from_numpy(self._shift_kernels))
-        # Apply convolution (with zero padding)
+        # Apply convolution (with zero padding). To obtain higher order features,
+        # we apply a dilated convolution.
         torch_convolved = conv(input=torch_tensor,
                                weight=torch_kernel,
-                               padding=1)
+                               padding=self.order,
+                               dilation=self.order)
         # Extract numpy array and get rid of the singleton batch dimension
         convolved = torch_convolved.data.numpy()[0, ...]
         return convolved
