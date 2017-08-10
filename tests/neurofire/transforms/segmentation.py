@@ -148,6 +148,17 @@ class TestSegmentation(unittest.TestCase):
             self.assertEqual(output.shape, output_expected.shape)
             self.assertTrue((output == output_expected).all())
 
+    def test_multi_order_affinities_2D(self):
+        segmentation = self.generate_segmentation()
+        transform = seg.Segmentation2MultiOrderAffinities(dim=2, orders=[1, 2])
+        output = transform(segmentation)
+        self.assertEqual(output.shape[0], 4)
+        order_1_affinities = self.affinities_brute_force(segmentation.squeeze(), output.dtype,
+                                                         order=1)
+        order_2_affinities = self.affinities_brute_force(segmentation.squeeze(), output.dtype,
+                                                         order=2)
+        self.assertTrue((output[:2].squeeze() == order_1_affinities).all())
+        self.assertTrue((output[2:].squeeze() == order_2_affinities).all())
 
     def test_segmentation2affinitiy_3D(self):
         segmentation = self.generate_segmentation(False)

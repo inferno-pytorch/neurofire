@@ -162,6 +162,43 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         return binarized_affinities
 
 
+class Segmentation2MultiOrderAffinities(Transform):
+    """
+    Generate affinity maps of multiple order affinities given a segmentation. The resulting maps
+    are concatenated along the leading (= channel) axis.
+    """
+    def __init__(self, dim, orders, dtype='float32', add_singleton_channel_dimension=False,
+                 **super_kwargs):
+        super(Segmentation2MultiOrderAffinities, self).__init__(**super_kwargs)
+        # Build Segmentation2Affinity objects
+        self._segmentation2affinities_objects = [
+            Segmentation2Affinities(dim, order=order, dtype=dtype,
+                                    add_singleton_channel_dimension=add_singleton_channel_dimension)
+            for order in orders]
+
+    @property
+    def dim(self):
+        return self._segmentation2affinities_objects[0].dim
+
+    @property
+    def add_singleton_channel_dimension(self):
+        return self._segmentation2affinities_objects[0].add_singleton_channel_dimension
+
+    @property
+    def dtype(self):
+        return self._segmentation2affinities_objects[0].dtype
+
+    @property
+    def orders(self):
+        return [seg2aff.order for seg2aff in self._segmentation2affinities_objects]
+
+    def tensor_function(self, tensor):
+        higher_order_affinity_tensor = \
+            np.concatenate([seg2aff(tensor) for seg2aff in self._segmentation2affinities_objects],
+                           axis=0)
+        return higher_order_affinity_tensor
+
+
 class ConnectedComponents2D(Transform):
     """
     Apply connected components on segmentation in 2D.
