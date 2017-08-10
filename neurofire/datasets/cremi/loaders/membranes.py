@@ -1,7 +1,9 @@
 from inferno.io.volumetric import HDF5VolumeLoader
 from inferno.io.transform import Compose
 from inferno.io.transform.generic import Cast
+from inferno.utils import python_utils as pyu
 from ....transforms.segmentation import Segmentation2Membranes, Segmentation2Affinities
+from ....transforms.segmentation import Segmentation2MultiOrderAffinities
 from ....transforms.segmentation import NegativeExponentialDistanceTransform
 
 
@@ -31,9 +33,10 @@ class MembraneVolume(HDF5VolumeLoader):
 
 class AffinityVolume(MembraneVolume):
     def __init__(self, path, path_in_h5_dataset=None, data_slice=None, name=None,
-                 dtype='float32', affinity_dim=3, **slicing_config):
+                 dtype='float32', affinity_dim=3, affinity_order=1, **slicing_config):
         # Set attributes
         self.affinity_dim = affinity_dim
+        self.affinity_order = affinity_order
         # Initialize super
         super(AffinityVolume, self).__init__(path, path_in_h5_dataset=path_in_h5_dataset,
                                              data_slice=data_slice, name=name,
@@ -43,8 +46,17 @@ class AffinityVolume(MembraneVolume):
         del self.nedt_gain
 
     def get_transforms(self):
-        # The Segmentation2Affinities adds a channel dimension
-        transforms = Compose(Segmentation2Affinities(self.affinity_dim,
-                                                     add_singleton_channel_dimension=True),
-                             Cast(self.dtype))
+        # The Segmentation2Affinities adds a channel dimension. Now depending on how many
+        # orders were requested, we dispatch Segmentation2Affinities or
+        # Segmentation2MultiOrderAffinities.
+        transforms = Compose()
+        if pyu.robust_len(self.affinity_order) == 1:
+            transforms.add(Segmentation2Affinities(dim=self.affinity_dim,
+                                                   order=pyu.from_iterable(self.affinity_order),
+                                                   add_singleton_channel_dimension=True))
+        else:
+            transforms.add(Segmentation2MultiOrderAffinities(dim=self.affinity_dim,
+                                                             orders=self.affinity_order,
+                                                             add_singleton_channel_dimension=True))
+        transforms.add(Cast(self.dtype))
         return transforms
