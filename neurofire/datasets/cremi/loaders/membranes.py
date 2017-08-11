@@ -5,6 +5,7 @@ from inferno.utils import python_utils as pyu
 from ....transforms.segmentation import Segmentation2Membranes, Segmentation2Affinities
 from ....transforms.segmentation import Segmentation2MultiOrderAffinities
 from ....transforms.segmentation import NegativeExponentialDistanceTransform
+from ....transforms.segmentation import ConnectedComponents3D
 
 
 class MembraneVolume(HDF5VolumeLoader):
@@ -52,16 +53,14 @@ class AffinityVolume(MembraneVolume):
         # orders were requested, we dispatch Segmentation2Affinities or
         # Segmentation2MultiOrderAffinities.
         transforms = Compose()
-        if pyu.robust_len(self.affinity_order) == 1:
-            transforms.add(Segmentation2Affinities(dim=self.affinity_dim,
-                                                   order=pyu.from_iterable(self.affinity_order),
-                                                   add_singleton_channel_dimension=True,
-                                                   retain_segmentation=self.retain_segmentation))
-        else:
-            transforms.add(
-                Segmentation2MultiOrderAffinities(dim=self.affinity_dim,
-                                                  orders=self.affinity_order,
-                                                  add_singleton_channel_dimension=True,
-                                                  retain_segmentation=self.retain_segmentation))
+        # Cast to the right dtype
         transforms.add(Cast(self.dtype))
+        # Run connected components to shuffle the labels
+        transforms.add(ConnectedComponents3D(label_segmentation=True))
+        # Make affinity maps
+        transforms.add(
+            Segmentation2MultiOrderAffinities(dim=self.affinity_dim,
+                                              orders=pyu.to_iterable(self.affinity_order),
+                                              add_singleton_channel_dimension=True,
+                                              retain_segmentation=self.retain_segmentation))
         return transforms

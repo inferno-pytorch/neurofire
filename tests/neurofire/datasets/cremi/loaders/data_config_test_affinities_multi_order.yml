@@ -67,8 +67,8 @@ volume_config:
     # Specify training precision
     dtype: float32
     # Dimensionality of the affinity computation
-    affinity_dim: 2
-    affinity_order: [1, 4, 8, 16]
+    affinity_dim: 3
+    affinity_order: [[1, 1, 1], [2, 4, 4], [3, 8, 8], [4, 16, 16]]
     retain_segmentation: true
 
 

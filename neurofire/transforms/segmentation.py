@@ -71,7 +71,7 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         self.dim = dim
         self.dtype = self.DTYPE_MAPPING.get(dtype)
         self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
-        self.order = order
+        self.order = order if isinstance(order, int) else tuple(order)
         self.retain_segmentation = retain_segmentation
         # Build kernels
         self._shift_kernels = self.build_shift_kernels(dim=self.dim, dtype=self.dtype)
