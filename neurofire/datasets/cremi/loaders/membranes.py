@@ -64,3 +64,23 @@ class AffinityVolume(MembraneVolume):
                                               add_singleton_channel_dimension=True,
                                               retain_segmentation=self.retain_segmentation))
         return transforms
+
+
+class SegmentationVolume(HDF5VolumeLoader):
+    def __init__(self, path, path_in_h5_dataset=None,
+                data_slice=None, name=None, dtype='float32',
+                **slicing_config):
+        path_in_h5_dataset = path_in_h5_dataset if path_in_h5_dataset is not None else \
+            '/volumes/labels/neuron_ids'
+        # Init super
+        super(SegmentationVolume, self).__init__(path=path, path_in_h5_dataset=path_in_h5_dataset,
+                                             data_slice=data_slice, name=name, **slicing_config)
+
+        assert isinstance(dtype, str)
+        self.dtype = dtype
+        # Make transforms
+        self.transforms = self.get_transforms()
+
+    def get_transforms(self):
+        transforms = ConnectedComponents3D(label_segmentation=True)
+        return transforms
