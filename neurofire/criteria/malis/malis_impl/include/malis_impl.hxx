@@ -17,6 +17,8 @@ template<unsigned DIM, typename DATA_TYPE, typename LABEL_TYPE>
 void compute_malis_gradient(
     const nifty::marray::View<DATA_TYPE> & affinities,
     const nifty::marray::View<LABEL_TYPE> & groundtruth,
+    const std::vector<int> & ranges,
+    const std::vector<int> & axes,
     const bool pos,
     nifty::marray::View<DATA_TYPE> & gradientsOut,
     DATA_TYPE & lossOut,
@@ -30,8 +32,9 @@ void compute_malis_gradient(
     typedef DATA_TYPE DataType;
 
     // check that number of affinity channels matches the dimensions
-    NIFTY_CHECK_OP(affinities.shape(0),==,DIM,"Number of affinity channels does not match the dimension!");
-    NIFTY_CHECK_OP(gradientsOut.shape(0),==,DIM,"Number of gradient channels must match !");
+    NIFTY_CHECK_OP(affinities.shape(0),==,ranges.size(),"Number of affinity channels does not match the ranges vector!");
+    NIFTY_CHECK_OP(axes.size(),==,ranges.size(),"Ranges vector size does not matches axes vector size!");
+    NIFTY_CHECK_OP(gradientsOut.shape(0),==,affinities.shape(0),"Number of gradient channels must match affinities!");
     // check that shapes match
     for(int d = 0; d < DIM; ++d) {
         NIFTY_CHECK_OP(affinities.shape(d+1),==,groundtruth.shape(d),"Affinity shape does not match gt shape!");
@@ -94,8 +97,7 @@ void compute_malis_gradient(
     }
 
     // get a flattened view to the marray
-    size_t flatShape[] = {affinities.size()};
-    auto flatView = affinities.reshapedView(flatShape, flatShape+1);
+    auto flatView = affinities.reshapedView({affinities.size()});
 
     // initialize the pqueu as [0,1,2,3,...,numberOfEdges]
     std::vector<size_t> pqueue(numberOfEdges);
@@ -109,7 +111,7 @@ void compute_malis_gradient(
     // 3.) Run kruskal - for each min spanning tree edge,
     // we compute the loss and gradient
 
-    size_t axis;
+    int axis, range;
     LabelType setU, setV, nodeU, nodeV;
     size_t nPair = 0, nPairIncorrect = 0 ;
     double loss = 0, gradient = 0;
@@ -122,33 +124,23 @@ void compute_malis_gradient(
     for(auto edgeIndex : pqueue) {
 
         // translate edge index to coordinate
-        affCoord[0] = edgeIndex / affinities.strides(0);
-        for(int d = 1; d < DIM+1; ++d) {
-            affCoord[d] = (edgeIndex % affinities.strides(d-1) ) / affinities.strides(d);
-        }
+        affinities.indexToCoordinates(edgeIndex, affCoord.begin());
 
         // the axis this edge is refering to
-        axis = affCoord[0];
+        axis = axes[affCoord[0]];
+        // the range
+        range = ranges[affCoord[0]];
 
         // first, we copy the spatial coordinates of the affinity pixel for both gt coords
-        for(int d = 1; d < DIM + 1; ++d) {
-            gtCoordU[d - 1] = affCoord[d];
-            gtCoordV[d - 1] = affCoord[d];
+        for(int d = 0; d < DIM; ++d) {
+            gtCoordU[d] = affCoord[d+1];
+            gtCoordV[d] = affCoord[d+1];
         }
 
-        // convention: edges encode the affinty to higher coordinates
-        //if(gtCoordV[axis] < pixelShape[axis] - 1) {
-        //    ++gtCoordV[axis];
-        //}
-
-        // convention: edges encode the affinty to lower coordinates
-        if(gtCoordV[axis] > 0) {
-            --gtCoordV[axis];
-        }
-        else {
+        gtCoordV[axis] += range;
+        if(gtCoordV[axis] < 0 || gtCoordV[axis] >= pixelShape[axis]) {
             continue;
         }
-
 
         nodeU = 0;
         nodeV = 0;
@@ -281,6 +273,8 @@ template<unsigned DIM, typename DATA_TYPE, typename LABEL_TYPE>
 void compute_constrained_malis_gradient(
     const nifty::marray::View<DATA_TYPE> & affinities,
     const nifty::marray::View<LABEL_TYPE> & groundtruth,
+    const std::vector<int> & ranges,
+    const std::vector<int> & axes,
     nifty::marray::View<DATA_TYPE> & gradientsOut,
     DATA_TYPE & lossOut
 ) {
@@ -305,7 +299,7 @@ void compute_constrained_malis_gradient(
     nifty::marray::Marray<DataType> affinitiesPos(nifty::marray::SkipInitialization, affShape.begin(), affShape.end());
     nifty::marray::Marray<DataType> affinitiesNeg(nifty::marray::SkipInitialization, affShape.begin(), affShape.end());
 
-    size_t axis;
+    int axis, range;
     Coord gtCoordU, gtCoordV;
     //AffinityCoord affCoord;
     LabelType labelU, labelV;
@@ -328,30 +322,23 @@ void compute_constrained_malis_gradient(
 
         // we change the V coordinate for the given axis (=corresponding coordinate)
         // only if this results in a valid coordinate
-        axis = affCoord[0];
+        axis = axes[affCoord[0]];
+        range = ranges[affCoord[0]];
 
         // first, we copy the spatial coordinates of the affinity pixel for both gt coords
-        for(int d = 1; d < DIM + 1; ++d) {
-            gtCoordU[d - 1] = affCoord[d];
-            gtCoordV[d - 1] = affCoord[d];
+        for(int d = 0; d < DIM; ++d) {
+            gtCoordU[d] = affCoord[d+1];
+            gtCoordV[d] = affCoord[d+1];
         }
-
-        // convention: edges encode the affinty to higher coordinates
-        //if(gtCoordV[axis] < pixelShape[axis] - 1) {
-        //    ++gtCoordV[axis];
-        //}
+        gtCoordV[axis] += range;
 
         // convention: edges encode the affinty to lower coordinates
-        if(gtCoordV[axis] > 0) {
-            --gtCoordV[axis];
-        }
-        else {
+        if(gtCoordV[axis] < 0 || gtCoordV[axis] >= pixelShape[axis]) {
             // the edge is invalid -> gtAffinity would be 0
             affinitiesPos(affCoord.asStdArray()) = 0.;
             affinitiesNeg(affCoord.asStdArray()) = affinity;
             return;
         }
-
 
         labelU = groundtruth(gtCoordU.asStdArray());
         labelV = groundtruth(gtCoordV.asStdArray());
@@ -379,7 +366,7 @@ void compute_constrained_malis_gradient(
     // calculate the positive malis gradients
     DataType lossPos, rand, classErr;
     compute_malis_gradient<DIM>(
-        affinitiesPos, groundtruth, true, gradientsOut, lossPos, classErr, rand
+        affinitiesPos, groundtruth, ranges, axes, true, gradientsOut, lossPos, classErr, rand
     );
 
     //auto t2 = std::chrono::steady_clock::now();
@@ -388,7 +375,7 @@ void compute_constrained_malis_gradient(
     // calculate the negative malis gradients
     DataType lossNeg;
     compute_malis_gradient<DIM>(
-        affinitiesNeg, groundtruth, false, gradientsOut, lossNeg, classErr, rand
+        affinitiesNeg, groundtruth, ranges, axes, false, gradientsOut, lossNeg, classErr, rand
     );
 
     //auto t3 = std::chrono::steady_clock::now();
