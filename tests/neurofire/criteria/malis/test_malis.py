@@ -9,19 +9,19 @@ class TestMalis(unittest.TestCase):
     BATCH_SIZE = 10
 
     def generate_test_data(self, generate_2d=True, reduce_num_affinity_channels=False):
-        shape = (100, 100) if generate_2d else (100, 100, 100)
+        shape = (64, 64) if generate_2d else (10, 64, 64)
         dim = 2 if generate_2d else 3
 
         affinities = np.random.random((dim,) + shape).astype('float32')
         groundtruth = np.zeros(shape, dtype='int64')
 
         current_label = 0
-        for x in range(groundtruth.shape[0]):
-            for y in range(groundtruth.shape[1]):
-                groundtruth[x, y] = current_label
-                # change label with probability .3
-                if np.random.random() > .7:
-                    current_label += 1
+        for ii in range(groundtruth.size):
+            index = np.unravel_index(ii, shape)
+            groundtruth[index] = current_label
+            # change label with probability .3
+            if np.random.random() > .8:
+                current_label += 1
 
         affinities = np.array([affinities.copy() for _ in range(self.BATCH_SIZE)])
         # groundtruth needs an extra channel axis
@@ -191,5 +191,5 @@ class TestMalis(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    TestMalis().test_malis_auto_loss_3d()
-    # unittest.main()
+    #TestMalis().test_malis_auto_loss_3d()
+    unittest.main()

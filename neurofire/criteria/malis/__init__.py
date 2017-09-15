@@ -1,1 +1,1 @@
-from .malis import Malis
+from .malis import Malis, _MalisBase

@@ -6,23 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 from inferno.extensions.layers.device import DeviceTransfer
 import os
 
-from .malis_impl.bld._malis_impl import malis_impl, constrained_malis_impl
-
-# malis loss and cpp impl adapted from:
-# https://github.com/naibaf7/caffe/blob/master/include/caffe/layers/malis_loss_layer.hpp
-# https://github.com/naibaf7/caffe/blob/master/src/caffe/layers/malis_loss_layer.cpp
-
-# TODO: the caffee implementation parallelizes over the batches in the backward / forward pass
-# I have no idea how batches are handled in pytorch, so I haven't done any parallelization yet
-# However the gil for 'malis_impl' is lifted, so this CAN be used in multiple threads
-
-# TODO as far as I can tell, this is normal MALIS. I can't see, where in the caffe impl
-# constrained MALIS (aka MALA) comes into play
-
-# To create new loss, we inherit from Function:
-# https://github.com/pytorch/pytorch/blob/master/torch/autograd/function.py#L123
-# see also
-# http://pytorch.org/tutorials/beginner/examples_autograd/two_layer_net_custom_function.html
+try:
+    from custom_malis import malis, constrained_malis, constrained_malis_custom_nh
+except ImportError:
+    raise ImportError("Malis loss is only supported when the custom malis module is available")
 
 
 class _MalisBase(Function):
@@ -61,12 +48,12 @@ class MalisLoss(_MalisBase):
         # The malis wrapper expects 2D or 3D groundtruth, so we ought to get rid of the
         # leading channel axis
         # fist, compute the positive loss and gradients
-        pos_gradients, _, _, _ = malis_impl(
+        pos_gradients, _, _, _ = malis(
             np.require(affinities, requirements='C'),
             np.require(groundtruth[0], requirements='C'), True)
 
         # next, compute the negative loss and gradients
-        neg_gradients, _, _, _ = malis_impl(
+        neg_gradients, _, _, _ = malis(
             np.require(affinities, requirements='C'),
             np.require(groundtruth[0], requirements='C'), False)
         return pos_gradients, neg_gradients
@@ -162,7 +149,7 @@ class MalisLoss(_MalisBase):
         # save the combined gradient for the backward pass
         # the trailing .mul(1) makes a copy of the numpy tensor, without which pytorch segfaults
         # yes, i've aged figuring this out
-        combined_gradient = torch.from_numpy(-(neg_gradients + pos_gradients) / 2.).mul(1)
+        combined_gradient = torch.from_numpy((neg_gradients + pos_gradients) / 2.)
         # Short story: No combined loss. Long story: torch doesn't allow saving a non-input or
         # non-output variable for backward (boohoo). If we save the numpy array as a python
         # variable (i.e. avoid save_for_backward), the backward pass segfaults.
@@ -189,8 +176,8 @@ class ConstrainedMalisLoss(_MalisBase):
 
     def _wrapper(self, affinities, groundtruth):
         # The groundtruth has a leading channel axis which we need to get rid of
-        gradients = constrained_malis_impl(np.require(affinities, requirements='C'),
-                                           np.require(groundtruth[0], requirements='C'))
+        gradients = constrained_malis(np.require(affinities, requirements='C'),
+                                      np.require(groundtruth[0], requirements='C'))
         return gradients
 
     def forward(self, affinities, groundtruth):
@@ -268,7 +255,7 @@ class ConstrainedMalisLoss(_MalisBase):
                           affinities_shape[4])) \
                 .swapaxes(1, 2)
 
-        gradients = torch.from_numpy(gradients).mul(-0.5)
+        gradients = torch.from_numpy(gradients)
         self.save_for_backward(gradients)
         return gradients
 
@@ -293,12 +280,12 @@ class CustomNHConstrainedMalisLoss(_MalisBase):
         self.axes = axes
 
     def _wrapper(self, affinities, groundtruth):
-        assert affinities.shape(0) == len(ranges)
+        assert affinities.shape[0] == len(self.ranges)
         # The groundtruth has a leading channel axis which we need to get rid of
-        gradients = constrained_malis_custom_nh_impl(np.require(affinities, requirements='C'),
-                                                     np.require(groundtruth[0], requirements='C'),
-                                                     ranges, axes
-                                                    )
+        gradients = constrained_malis_custom_nh(np.require(affinities, requirements='C'),
+                                                np.require(groundtruth[0], requirements='C'),
+                                                self.ranges, self.axes
+                                               )
         return gradients
 
     def forward(self, affinities, groundtruth):
@@ -378,7 +365,7 @@ class CustomNHConstrainedMalisLoss(_MalisBase):
                           affinities_shape[4])) \
                 .swapaxes(1, 2)
 
-        gradients = torch.from_numpy(gradients).mul(-0.5)
+        gradients = torch.from_numpy(gradients)
         self.save_for_backward(gradients)
         return gradients
 
@@ -423,14 +410,16 @@ class Malis(nn.Module):
             self._axes = axes
             self._custom_nh = True
             self._combined = combined
+            # we override constrained for custom nhs
+            self._constrained = False
         else:
             self._custom_nh = False
             self._combined = False
             self._ranges = None
             self._axes = None
+            self._constrained = constrained
 
         self._malis_dim = malis_dim
-        self._constrained = constrained
         self.device_transfer = DeviceTransfer('cpu')
 
     @property
@@ -465,7 +454,7 @@ class Malis(nn.Module):
         elif self.custom_nh:
             # TODO if combined, we compute normal constrained malis for the 1-range affinities
             # and constrained malis with custom nh for the long range affinities
-            if self.combined:
+            if self._combined:
                 raise NotImplementedError("Combined malis loss is not implemented yet")
             else:
                 loss_gradients = CustomNHConstrainedMalisLoss(malis_dim=self.malis_dim,
