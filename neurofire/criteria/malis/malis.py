@@ -280,7 +280,6 @@ class CustomNHConstrainedMalisLoss(_MalisBase):
         self.axes = axes
 
     def _wrapper(self, affinities, groundtruth):
-        assert affinities.shape[0] == len(self.ranges)
         # The groundtruth has a leading channel axis which we need to get rid of
         gradients = constrained_malis_custom_nh(np.require(affinities, requirements='C'),
                                                 np.require(groundtruth[0], requirements='C'),
@@ -324,8 +323,8 @@ class CustomNHConstrainedMalisLoss(_MalisBase):
         assert groundtruth.shape[1] == 1, "Groundtruth must have a single channel."
         assert affinities.shape[-self.dim:] == groundtruth.shape[-self.dim:], \
             "Spatial shapes of affinities and groundtruth do not match."
-        assert affinities.shape[1] == self.malis_dim, \
-            "Affinities must have 2 or 3 channels (for 2D and 3D affinities, respectively)"
+        assert affinities.shape[1] == len(self.ranges), \
+            "Affinities must have as many channels as the ranges (%i, %i)" % (affinities.shape[1], len(self.ranges))
         # Store shapes for backward
         self._intermediates.update({'affinities_shape': affinities.shape,
                                     'groundtruth_shape': groundtruth.shape})
@@ -448,6 +447,8 @@ class Malis(nn.Module):
 
     # noinspection PyCallingNonCallable
     def forward(self, input, target):
+        print(input.size())
+        print(target.size())
         input, target = self.device_transfer(input, target)
         if self.constrained:
             loss_gradients = ConstrainedMalisLoss(malis_dim=self.malis_dim)(input, target)
@@ -457,6 +458,7 @@ class Malis(nn.Module):
             if self._combined:
                 raise NotImplementedError("Combined malis loss is not implemented yet")
             else:
+                print("Here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 loss_gradients = CustomNHConstrainedMalisLoss(malis_dim=self.malis_dim,
                                                               ranges=self.ranges,
                                                               axes=self.axes
