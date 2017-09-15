@@ -48,12 +48,12 @@ class MalisLoss(_MalisBase):
         # The malis wrapper expects 2D or 3D groundtruth, so we ought to get rid of the
         # leading channel axis
         # fist, compute the positive loss and gradients
-        pos_gradients, _, _, _ = malis(
+        pos_gradients = malis(
             np.require(affinities, requirements='C'),
             np.require(groundtruth[0], requirements='C'), True)
 
         # next, compute the negative loss and gradients
-        neg_gradients, _, _, _ = malis(
+        neg_gradients = malis(
             np.require(affinities, requirements='C'),
             np.require(groundtruth[0], requirements='C'), False)
         return pos_gradients, neg_gradients
