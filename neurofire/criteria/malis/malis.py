@@ -388,7 +388,7 @@ class Malis(nn.Module):
     the forward pass, and their gradients back to the GPU in the backward pass.
     Also, the resulting pseudo loss is on the CPU.
     """
-    def __init__(self, constrained=True, malis_dim='auto', ranges=None, axes=None, combined=False):
+    def __init__(self, constrained=True, malis_dim='auto', ranges=None, axes=None):
         """
         Parameters
         ----------
@@ -408,12 +408,10 @@ class Malis(nn.Module):
             self._ranges = ranges
             self._axes = axes
             self._custom_nh = True
-            self._combined = combined
             # we override constrained for custom nhs
             self._constrained = False
         else:
             self._custom_nh = False
-            self._combined = False
             self._ranges = None
             self._axes = None
             self._constrained = constrained
@@ -430,10 +428,6 @@ class Malis(nn.Module):
         return self._custom_nh
 
     @property
-    def combined(self):
-        return self._combined
-
-    @property
     def ranges(self):
         return self._ranges
 
@@ -447,22 +441,14 @@ class Malis(nn.Module):
 
     # noinspection PyCallingNonCallable
     def forward(self, input, target):
-        print(input.size())
-        print(target.size())
         input, target = self.device_transfer(input, target)
         if self.constrained:
             loss_gradients = ConstrainedMalisLoss(malis_dim=self.malis_dim)(input, target)
         elif self.custom_nh:
-            # TODO if combined, we compute normal constrained malis for the 1-range affinities
-            # and constrained malis with custom nh for the long range affinities
-            if self._combined:
-                raise NotImplementedError("Combined malis loss is not implemented yet")
-            else:
-                print("Here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                loss_gradients = CustomNHConstrainedMalisLoss(malis_dim=self.malis_dim,
-                                                              ranges=self.ranges,
-                                                              axes=self.axes
-                                                             )(input, target)
+            loss_gradients = CustomNHConstrainedMalisLoss(malis_dim=self.malis_dim,
+                                                          ranges=self.ranges,
+                                                          axes=self.axes
+                                                         )(input, target)
         else:
             loss_gradients = MalisLoss(malis_dim=self.malis_dim)(input, target)
         pseudo_loss = loss_gradients.sum()
