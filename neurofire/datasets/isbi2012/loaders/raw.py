@@ -1,3 +1,4 @@
+from inferno.utils.io_utils import yaml2dict
 from inferno.io.volumetric import TIFVolumeLoader, HDF5VolumeLoader
 from inferno.io.transform import Compose
 from inferno.io.transform.generic import Cast, Normalize
@@ -39,3 +40,16 @@ class RawVolumeHDF5(HDF5VolumeLoader):
             AdditiveGaussianNoise(sigma=.025),
             Cast(self.dtype))
         return transforms
+
+    @classmethod
+    def from_config(cls, config):
+        config = yaml2dict(config)
+        path = config.get('path')
+        path_in_h5_dataset = config.get('path_in_h5_dataset', None)
+        data_slice = config.get('data_slice', None)
+        dtype = config.get('dtype', 'float32')
+        slicing_config = config.get('slicing_config', None)
+        print(path)
+        return cls(path, path_in_h5_dataset=path_in_h5_dataset,
+                   data_slice=data_slice, dtype=dtype,
+                   **slicing_config)

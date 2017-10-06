@@ -43,27 +43,27 @@ volume_config:
   # Raw data
   raw:
     path:
-      A: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_A_20160501.hdf'
-      B: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_B_20160501.hdf'
-      C: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_C_20160501.hdf'
+      A: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleA/raw/sampleA_raw_none.h5'
+      B: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleB/raw/sampleB_raw_none.h5'
+      C: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleC/raw/sampleC_raw_none.h5'
     # CREMI default is '/volumes/raw'
     path_in_h5_dataset:
-      A: '/volumes/raw'
-      B: '/volumes/raw'
-      C: '/volumes/raw'
+      A: 'data'
+      B: 'data'
+      C: 'data'
     # Optionally, we specify training precision
     dtype: float32
   # Membranes
   affinities:
     path:
-      A: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_A_20160501.hdf'
-      B: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_B_20160501.hdf'
-      C: '/mnt/localdata02/nrahaman/Neuro/Datasets/CREMI/sample_C_20160501.hdf'
+      A: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleA/gt/sampleA_neurongt_none.h5'
+      B: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleB/gt/sampleB_neurongt_none.h5'
+      C: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleC/gt/sampleC_neurongt_none.h5'
     # CREMI default is '/volumes/labels/neuron_ids'
     path_in_h5_dataset:
-      A: '/volumes/labels/neuron_ids'
-      B: '/volumes/labels/neuron_ids'
-      C: '/volumes/labels/neuron_ids'
+      A: 'data'
+      B: 'data'
+      C: 'data'
     # Specify training precision
     dtype: float32
     # Dimensionality of the affinity computation

@@ -174,6 +174,13 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # Cast to be sure
         if not binarized_affinities.dtype == self.dtype:
             binarized_affinities = binarized_affinities.astype(self.dtype)
+
+        # FIXME remove legacy
+        # if we have a grown boundary, change affinities where we have the boundary label to 1
+        #if self.grow_boundary:
+        #    boundary_mask = (tensor == self.boundary_value).squeeze()
+        #    binarized_affinities[:, boundary_mask] = 1
+
         # We might want to carry the segmentation along (e.g. when combining MALIS with
         # euclidean loss higher-order affinities). If this is the case, we insert the segmentation
         # as the *first* channel.

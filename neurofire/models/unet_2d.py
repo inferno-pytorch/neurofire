@@ -101,10 +101,11 @@ class UNet2D(nn.Module):
         # in which case you'd need a softmax. If you're doing a binary segmentation with just one
         # output channel, you need a sigmoid. But: if you're overloading the channel axis for
         # z-context, you're still gonna use sigmoid. Assuming you're not doing the latter,
-        if n_out_channels == 1:
-            self.final_activation = nn.Sigmoid()
-        else:
-            self.final_activation = nn.Softmax2d()
+        #if n_out_channels == 1:
+        #    self.final_activation = nn.Sigmoid()
+        #else:
+        #    self.final_activation = nn.Softmax2d()
+        self.final_activation = nn.Sigmoid()
 
     # the forward pass - defining the connectivity of layers
     def forward(self, x):
