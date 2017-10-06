@@ -74,14 +74,15 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         self.order = order if isinstance(order, int) else tuple(order)
         self.retain_segmentation = retain_segmentation
         # Build kernels
-        self._shift_kernels = self.build_shift_kernels(dim=self.dim, dtype=self.dtype)
-        # Diagonal affinities
         self.diagonal_affinities = diagonal_affinities
+        self._shift_kernels = self.build_shift_kernels(dim=self.dim,
+                                                       dtype=self.dtype,
+                                                       diagonal_affinities=self.diagonal_affinities)
 
     @staticmethod
-    def build_shift_kernels(dim, dtype):
+    def build_shift_kernels(dim, dtype, diagonal_affinities):
         if dim == 3:
-            if self.diagonal_affinities:
+            if diagonal_affinities:
                 raise NotImplementedError("Diagonal affinities are not supported for 3d input yet.")
             # The kernels have a shape similar to conv kernels in torch. We have 3 output channels,
             # corresponding to (depth, height, width)
@@ -103,14 +104,14 @@ class Segmentation2Affinities(Transform, DtypeMapping):
             shift_combined = np.zeros(shape=(2, 1, 3, 3), dtype=dtype)
 
             # Shift height
-            if self.diagonal_affinities:
+            if diagonal_affinities:
                 shift_combined[0, 0, 0, 0] = 1.
             else:
                 shift_combined[0, 0, 0, 1] = 1.
             shift_combined[0, 0, 1, 1] = -1.
 
             # Shift width
-            if self.diagonal_affinities:
+            if diagonal_affinities:
                 shift_combined[1, 0, 2, 0] = 1.
             else:
                 shift_combined[1, 0, 1, 0] = 1.
