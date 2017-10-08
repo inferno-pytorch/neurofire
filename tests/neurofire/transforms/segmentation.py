@@ -1,7 +1,7 @@
 import unittest
 import neurofire.transforms.segmentation as seg
 import numpy as np
-
+import torch
 
 class TestSegmentation(unittest.TestCase):
 
@@ -99,7 +99,6 @@ class TestSegmentation(unittest.TestCase):
         self.assertEqual(output.shape, expected.shape)
         self.assertTrue((output == expected).all())
 
-
     def test_toy(self):
         segmentation, expected = self.generate_toy_data()
         transform = seg.Segmentation2Affinities(dim=2)
@@ -108,7 +107,6 @@ class TestSegmentation(unittest.TestCase):
         #print(output[0])
         self.assertEqual(output.shape, expected.shape)
         self.assertTrue((output == expected).all())
-
 
     def test_segmentation2affinitiy_random(self):
         # 3D with 3D affinities
@@ -133,6 +131,58 @@ class TestSegmentation(unittest.TestCase):
         self.assertSequenceEqual((512, 512), output.shape[1:])
         self.assertEqual(output.shape[0], 2)
 
+    @unittest.skipIf(torch.cuda.is_available(), "Cuda not available.")
+    def test_segmentation2affinity_random_gpu(self):
+        # 3D with 3D affinities
+        wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
+        wannabe_groundtruth = torch.from_numpy(wannabe_groundtruth)
+        # Build transform
+        transform = seg.Segmentation2Affinities(dim=3, use_gpu=True)
+        output = transform(wannabe_groundtruth)
+        self.assertSequenceEqual((16, 512, 512), list(output.size())[1:])
+        self.assertEqual(output.size(0), 3)
+        # 3D with 2D affinities
+        wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
+        wannabe_groundtruth = torch.from_numpy(wannabe_groundtruth)
+        # Build transform
+        transform = seg.Segmentation2Affinities(dim=2, use_gpu=True)
+        output = transform(wannabe_groundtruth)
+        self.assertSequenceEqual((16, 512, 512), list(output.size())[1:])
+        self.assertEqual(output.size(0), 2)
+        # 2D with 2D affinities
+        wannabe_groundtruth = np.random.uniform(size=(1, 512, 512))
+        wannabe_groundtruth = torch.from_numpy(wannabe_groundtruth)
+        # Build transform
+        transform = seg.Segmentation2Affinities(dim=2, use_gpu=True)
+        output = transform(wannabe_groundtruth)
+        self.assertSequenceEqual((512, 512), list(output.size())[1:])
+        self.assertEqual(output.size(0), 2)
+
+    def test_segmentation2affinity_random_torch(self):
+        # 3D with 3D affinities
+        wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
+        wannabe_groundtruth = torch.from_numpy(wannabe_groundtruth)
+        # Build transform
+        transform = seg.Segmentation2Affinities(dim=3, use_gpu=False)
+        output = transform(wannabe_groundtruth)
+        self.assertSequenceEqual((16, 512, 512), list(output.size())[1:])
+        self.assertEqual(output.size(0), 3)
+        # 3D with 2D affinities
+        wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
+        wannabe_groundtruth = torch.from_numpy(wannabe_groundtruth)
+        # Build transform
+        transform = seg.Segmentation2Affinities(dim=2, use_gpu=False)
+        output = transform(wannabe_groundtruth)
+        self.assertSequenceEqual((16, 512, 512), list(output.size())[1:])
+        self.assertEqual(output.size(0), 2)
+        # 2D with 2D affinities
+        wannabe_groundtruth = np.random.uniform(size=(1, 512, 512))
+        wannabe_groundtruth = torch.from_numpy(wannabe_groundtruth)
+        # Build transform
+        transform = seg.Segmentation2Affinities(dim=2, use_gpu=False)
+        output = transform(wannabe_groundtruth)
+        self.assertSequenceEqual((512, 512), list(output.size())[1:])
+        self.assertEqual(output.size(0), 2)
 
     def test_segmentation2affinitiy_2D(self):
         segmentation = self.generate_segmentation()
@@ -147,6 +197,23 @@ class TestSegmentation(unittest.TestCase):
 
             self.assertEqual(output.shape, output_expected.shape)
             self.assertTrue((output == output_expected).all())
+
+    def test_segmentation2affinitiy_2D_torch(self):
+        segmentation = self.generate_segmentation().astype('int64')
+        segmentation = torch.from_numpy(segmentation)
+
+        for order in (1, 2, 3, 5, 7, 20):
+            # output from the segmentation module
+            transform = seg.Segmentation2Affinities(dim=2, order=order)
+            output = transform(segmentation).squeeze()
+
+            # brute force loop
+            output_expected = self.affinities_brute_force(segmentation.squeeze().numpy(),
+                                                          'int64',
+                                                          order)
+
+            self.assertSequenceEqual(output.size(), output_expected.shape)
+            self.assertTrue((output.numpy() == output_expected).all())
 
     def test_multi_order_affinities_2D(self):
         segmentation = self.generate_segmentation()
