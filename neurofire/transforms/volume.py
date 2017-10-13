@@ -55,7 +55,7 @@ class RandomSlide(Transform):
             shifts = (0, 0)
         # Get slice
         starts = tuple(_origin + _shift for _origin, _shift in zip(origin, shifts))
-        stops = tuple(_start + _size for _start, _size in zip(starts, image.shape))
+        stops = tuple(_start + _size for _start, _size in zip(starts, self.output_image_size))
         slices = tuple(slice(_start, _stop) for _start, _stop in zip(starts, stops))
         # Crop and return
         return image[slices]
