@@ -7,6 +7,7 @@ from scipy.ndimage.measurements import label
 
 from inferno.io.transform import Transform
 import inferno.utils.python_utils as pyu
+import inferno.utils.torch_utils as tu
 
 import logging
 logger = logging.getLogger(__name__)
@@ -27,6 +28,11 @@ class DtypeMapping(object):
                      'float64': 'float64',
                      'half': 'float16',
                      'float16': 'float16'}
+
+    INVERSE_DTYPE_MAPPING = {'float32': 'float',
+                             'float64': 'double',
+                             'float16': 'half',
+                             'int64': 'long'}
 
 
 class Segmentation2Membranes(Transform, DtypeMapping):
@@ -61,7 +67,8 @@ class NegativeExponentialDistanceTransform(Transform):
 class Segmentation2Affinities(Transform, DtypeMapping):
     """Convert dense segmentation to affinity-maps of arbitrary order."""
     def __init__(self, dim, order=1, dtype='float32', add_singleton_channel_dimension=False,
-                 retain_segmentation=False, diagonal_affinities=False, **super_kwargs):
+                 retain_segmentation=False, diagonal_affinities=False, use_gpu=False,
+                 **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
         # Privates
         self._shift_kernels = None
@@ -73,11 +80,14 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
         self.order = order if isinstance(order, int) else tuple(order)
         self.retain_segmentation = retain_segmentation
-        # Build kernels
+        self.use_gpu = use_gpu
         self.diagonal_affinities = diagonal_affinities
+        # Build kernels
         self._shift_kernels = self.build_shift_kernels(dim=self.dim,
                                                        dtype=self.dtype,
                                                        diagonal_affinities=self.diagonal_affinities)
+        # This will be filled in later if required
+        self._cuda_shift_kernels = None
 
     @staticmethod
     def build_shift_kernels(dim, dtype, diagonal_affinities):
@@ -122,6 +132,14 @@ class Segmentation2Affinities(Transform, DtypeMapping):
             raise NotImplementedError
 
     def convolve_with_shift_kernel(self, tensor):
+        if isinstance(tensor, np.ndarray):
+            return self._convolve_with_shift_kernel_numpy(tensor)
+        elif torch.is_tensor(tensor):
+            return self._convolve_with_shift_kernel_torch(tensor)
+        else:
+            raise NotImplementedError
+
+    def _convolve_with_shift_kernel_numpy(self, tensor):
         if self.dim == 3:
             # Make sure the tensor is contains 3D volumes (i.e. is 4D) with the first axis
             # being channel
@@ -152,7 +170,54 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         convolved = torch_convolved.data.numpy()[0, ...]
         return convolved
 
+    def _convolve_with_shift_kernel_torch(self, tensor):
+        if self.dim == 3:
+            # Make sure the tensor is contains 3D volumes (i.e. is 4D) with the first axis
+            # being channel
+            assert tensor.dim() == 4, "Tensor must be 4D for dim = 3."
+            assert tensor.size(0) == 1, "Tensor must have only one channel."
+            conv = torch.nn.functional.conv3d
+        elif self.dim == 2:
+            # Make sure the tensor contains 2D images (i.e. is 3D) with the first axis
+            # being channel
+            assert tensor.dim() == 3, "Tensor must be 3D for dim = 2."
+            assert tensor.size(0) == 1, "Tensor must have only one channel."
+            conv = torch.nn.functional.conv2d
+        else:
+            raise NotImplementedError
+        # Cast tensor to the right datatype (no-op if it's the right dtype already)
+        tensor = getattr(tensor, self.INVERSE_DTYPE_MAPPING.get(self.dtype))()
+        # Move tensor to GPU if required
+        if self.use_gpu:
+            tensor = tensor.cuda()
+            # Assign kernel tensor
+            if self._cuda_shift_kernels is None:
+                self._cuda_shift_kernels = torch.from_numpy(self._shift_kernels).cuda()
+            kernel_tensor = self._cuda_shift_kernels
+        else:
+            kernel_tensor = torch.from_numpy(self._shift_kernels)
+        # Build torch variables of the right shape (i.e. with a leading singleton batch axis)
+        torch_tensor = torch.autograd.Variable(tensor[None, ...])
+        torch_kernel = torch.autograd.Variable(kernel_tensor)
+        # Apply convolution (with zero padding). To obtain higher order features,
+        # we apply a dilated convolution.
+        torch_convolved = conv(input=torch_tensor,
+                               weight=torch_kernel,
+                               padding=self.order,
+                               dilation=self.order)
+        # Get rid of the singleton batch dimension (keep cuda tensor as is)
+        convolved = torch_convolved.data[0, ...]
+        return convolved
+
     def tensor_function(self, tensor):
+        if isinstance(tensor, np.ndarray):
+            return self._tensor_function_numpy(tensor)
+        elif torch.is_tensor(tensor):
+            return self._tensor_function_torch(tensor)
+        else:
+            raise NotImplementedError
+
+    def _tensor_function_numpy(self, tensor):
         # Add singleton channel dimension if requested
         if self.add_singleton_channel_dimension:
             tensor = tensor[None, ...]
@@ -189,6 +254,39 @@ class Segmentation2Affinities(Transform, DtypeMapping):
             if tensor.dtype != self.dtype:
                 tensor = tensor.astype(self.dtype)
             output = np.concatenate((tensor, binarized_affinities), axis=0)
+        else:
+            output = binarized_affinities
+        return output
+
+    def _tensor_function_torch(self, tensor):
+        # Add singleton channel dimension if requested
+        if self.add_singleton_channel_dimension:
+            tensor = tensor[None, ...]
+        if tensor.dim() not in [3, 4]:
+            raise NotImplementedError("Affinity map generation is only supported in 2D and 3D. "
+                                      "Did you mean to set add_singleton_channel_dimension to "
+                                      "True?")
+        if (tensor.dim() == 3 and self.dim == 2) or (tensor.dim() == 4 and self.dim == 3):
+            # Convolve tensor with a shift kernel
+            convolved_tensor = self.convolve_with_shift_kernel(tensor)
+        elif tensor.dim() == 4 and self.dim == 2:
+            # Tensor contains 3D volumes, but the affinity maps are computed in 2D. So we loop over
+            # all z-planes and concatenate the results together
+            convolved_tensor = torch.stack([self.convolve_with_shift_kernel(tensor[:, z_num, ...])
+                                            for z_num in range(tensor.size(1))], dim=1)
+        else:
+            raise NotImplementedError
+        # Threshold convolved tensor
+        binarized_affinities = tu.where(convolved_tensor == 0.,
+                                        convolved_tensor.new(*convolved_tensor.size()).fill_(1.),
+                                        convolved_tensor.new(*convolved_tensor.size()).fill_(0.))
+
+        # We might want to carry the segmentation along (e.g. when combining MALIS with
+        # euclidean loss higher-order affinities). If this is the case, we insert the segmentation
+        # as the *first* channel.
+        if self.retain_segmentation:
+            tensor = getattr(tensor, self.INVERSE_DTYPE_MAPPING.get(self.dtype))()
+            output = torch.cat((tensor, binarized_affinities), 0)
         else:
             output = binarized_affinities
         return output
