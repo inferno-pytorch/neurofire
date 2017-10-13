@@ -6,7 +6,7 @@ from inferno.io.transform import Transform
 
 class RandomSlide(Transform):
     """Transform to randomly sample misalignments."""
-    def __init__(self, output_image_size, shift_vs_slide_proba=0.5, **super_kwargs):
+    def __init__(self, output_image_size, shift_vs_slide_proba=0.5, apply_proba=0.8, **super_kwargs):
         super(RandomSlide, self).__init__(**super_kwargs)
         # Make sure we have a 2-tuple
         output_image_size = (output_image_size, output_image_size) \
@@ -15,6 +15,7 @@ class RandomSlide(Transform):
             "Inconsistent output_image_size: {}. Must have 2 elements.".format(output_image_size)
         self.output_image_size = tuple(output_image_size)
         self.shift_vs_slide_proba = shift_vs_slide_proba
+        self.apply_proba = apply_proba
 
     def build_random_variables(self, num_planes, input_image_size):
         # Compute the available slide leeways. We have two sets of leeways - origin-ward
@@ -65,6 +66,15 @@ class RandomSlide(Transform):
         # Build random variables
         self.build_random_variables(num_planes=volume.shape[0],
                                     input_image_size=volume.shape[1:])
+
+        # determine if we apply the transformation to the slide at all
+        # TODO would be cleaner to integrate into `build random variables` as well
+        r = np.random.rand()
+        if r > self.apply_proba:
+            out_volume = np.array([self.shift_and_crop(image=plane, zero_shift=True)
+                                  for plane in volume])
+            return out_volume
+
         # Get random variables
         shift_or_slide = self.get_random_variable('shift_or_slide')
         # Shift or slide?

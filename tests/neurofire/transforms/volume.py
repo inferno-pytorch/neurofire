@@ -5,9 +5,10 @@ import h5py
 # import torch
 
 
+# TODO proper tests on random data
 class TestRandomSlide(unittest.TestCase):
 
-    def test_slide(self):
+    def test_slide_shapes(self):
         shape = (20, 100, 100)
         x = np.zeros(shape, dtype='float32')
         out_shape = (20, 90, 90)
@@ -24,10 +25,6 @@ def view_random_slide(raw_path, bounding_box, output_shape, raw_key='data'):
     trafo = vol.RandomSlide(output_shape)
     slided = trafo(raw)
 
-    print(slided.shape)
-    print(type(slided))
-    #print(slided)
-
     diff = (
         np.array(raw.shape) - np.array([len(raw), output_shape[0], output_shape[1]]).astype('uint32')
     ) // 2
@@ -35,7 +32,7 @@ def view_random_slide(raw_path, bounding_box, output_shape, raw_key='data'):
     cropped = raw[crop]
     assert cropped.shape == slided.shape, "%s, %s" % (str(cropped.shape), str(slided.shape))
 
-    volumina_n_layer([cropped, slided])
+    volumina_n_layer([cropped, slided], ['cropped', 'slipped'])
 
 
 if __name__ == '__main__':
