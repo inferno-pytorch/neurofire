@@ -46,10 +46,13 @@ class RandomSlide(Transform):
         self.set_random_variable('slide_from', slide_from)
         self.set_random_variable('shift_at', shift_at)
 
-    def shift_and_crop(self, image):
+    def shift_and_crop(self, image, zero_shift=False):
         # Get random variables
         origin = self.get_random_variable('origin')
         shift = self.get_random_variable('shift')
+        # Kill shift if requested
+        if zero_shift:
+            shift = (0, 0)
         # Get slice
         starts = tuple(_origin + _shift for _origin, _shift in zip(origin, shift))
         stops = tuple(_start + _size for _start, _size in zip(starts, image.shape))
@@ -58,8 +61,10 @@ class RandomSlide(Transform):
         return image[slices]
 
     def volume_function(self, volume):
+        # TODO Validate volume shape
         # Build random variables
-        self.build_random_variables(num_planes=volume.shape[0], input_image_size=volume.shape[1:])
+        self.build_random_variables(num_planes=volume.shape[0],
+                                    input_image_size=volume.shape[1:])
         # Get random variables
         shift_or_slide = self.get_random_variable('shift_or_slide')
         out_volume = volume.copy()
@@ -67,13 +72,17 @@ class RandomSlide(Transform):
         if shift_or_slide == 'shift':
             # Shift
             shift_at = self.get_random_variable('shift_at')
-            out_volume[shift_at] = self.shift_and_crop(out_volume[shift_at])
+            # Don't shift if plane_num doesn't equal shift_at
+            out_volume = np.array([self.shift_and_crop(image=plane,
+                                                       zero_shift=(plane_num != shift_at))
+                                   for plane_num, plane in enumerate(volume)])
         else:
             # Slide
             slide_from = self.get_random_variable('slide_from')
-            for plane_num in range(out_volume.shape[0]):
-                if plane_num >= slide_from:
-                    out_volume[plane_num] = self.shift_and_crop(out_volume[plane_num])
+            # Don't shift if plane_num isn't larger than or equal to slide_from
+            out_volume = np.array([self.shift_and_crop(image=plane,
+                                                       zero_shift=(plane_num < slide_from))
+                                   for plane_num, plane in enumerate(volume)])
         # Done
         return out_volume
 
