@@ -49,12 +49,12 @@ class RandomSlide(Transform):
     def shift_and_crop(self, image, zero_shift=False):
         # Get random variables
         origin = self.get_random_variable('origin')
-        shift = self.get_random_variable('shift')
+        shifts = self.get_random_variable('shifts')
         # Kill shift if requested
         if zero_shift:
-            shift = (0, 0)
+            shifts = (0, 0)
         # Get slice
-        starts = tuple(_origin + _shift for _origin, _shift in zip(origin, shift))
+        starts = tuple(_origin + _shift for _origin, _shift in zip(origin, shifts))
         stops = tuple(_start + _size for _start, _size in zip(starts, image.shape))
         slices = tuple(slice(_start, _stop) for _start, _stop in zip(starts, stops))
         # Crop and return
@@ -67,7 +67,6 @@ class RandomSlide(Transform):
                                     input_image_size=volume.shape[1:])
         # Get random variables
         shift_or_slide = self.get_random_variable('shift_or_slide')
-        out_volume = volume.copy()
         # Shift or slide?
         if shift_or_slide == 'shift':
             # Shift
