@@ -38,17 +38,42 @@ class RandomSlide(Transform):
         shift_or_slide = 'shift' if np.random.uniform() < self.shift_vs_slide_proba else 'slide'
         # Select from which plane on to slide
         slide_from = np.random.randint(low=1, high=num_planes)
+        shift_at = np.random.randint(low=0, high=num_planes)
         # Write to dict
         self.set_random_variable('shifts', shifts)
         self.set_random_variable('origin', originward_leeways)
         self.set_random_variable('shift_or_slide', shift_or_slide)
         self.set_random_variable('slide_from', slide_from)
+        self.set_random_variable('shift_at', shift_at)
+
+    def shift_and_crop(self, image):
+        # Get random variables
+        origin = self.get_random_variable('origin')
+        shift = self.get_random_variable('shift')
+        # Get slice
+        starts = tuple(_origin + _shift for _origin, _shift in zip(origin, shift))
+        stops = tuple(_start + _size for _start, _size in zip(starts, image.shape))
+        slices = tuple(slice(_start, _stop) for _start, _stop in zip(starts, stops))
+        # Crop and return
+        return image[slices]
 
     def volume_function(self, volume):
         # Build random variables
         self.build_random_variables(num_planes=volume.shape[0], input_image_size=volume.shape[1:])
-        # Get'em
-        origin = self.get_random_variable('origin')
-        shift = self.get_random_variable('shift')
-        # TODO Continue
+        # Get random variables
+        shift_or_slide = self.get_random_variable('shift_or_slide')
+        out_volume = volume.copy()
+        # Shift or slide?
+        if shift_or_slide == 'shift':
+            # Shift
+            shift_at = self.get_random_variable('shift_at')
+            out_volume[shift_at] = self.shift_and_crop(out_volume[shift_at])
+        else:
+            # Slide
+            slide_from = self.get_random_variable('slide_from')
+            for plane_num in range(out_volume.shape[0]):
+                if plane_num >= slide_from:
+                    out_volume[plane_num] = self.shift_and_crop(out_volume[plane_num])
+        # Done
+        return out_volume
 
