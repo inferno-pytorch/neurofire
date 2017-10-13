@@ -210,7 +210,8 @@ class Segmentation2MultiOrderAffinities(Transform):
                 Segmentation2Affinities(dim, order=order, dtype=dtype,
                                         diagonal_affinities=use_diag,
                                         add_singleton_channel_dimension=add_singleton_channel_dimension)
-                for use_diag in (False, True) for order in orders]
+                for order in orders for use_diag in (False, True)]
+
         else:
             self._segmentation2affinities_objects = [
                 Segmentation2Affinities(dim, order=order, dtype=dtype,
@@ -303,3 +304,33 @@ class ConnectedComponents3D(Transform):
         else:
             connected_components, _ = label(volume)
         return connected_components
+
+
+class SegmentationToBinaryLabels(Transform):
+    """
+    Transform a segmentation to a binary 0-1 labeling.
+    """
+
+    def __init__(self, background_label=0, ignore_label=None, **super_kwargs):
+        """
+        Parameters
+        ----------
+        background_label: int
+        Label of the background class (default = 0)
+        ignore_label: int
+        Ignore label that will be kept at its value (default = None).
+        """
+        super(SegmentationToBinaryLabels, self).__init__(**super_kwargs)
+        self.background_label = background_label
+        self.ignore_label = ignore_label
+
+
+    def volume_function(self, volume):
+        foreground_mask = volume != self.background_label
+
+        if self.ignore_label is not None:
+            ignore_mask = volume == self.ignore_label
+            foreground_mask[ignore_mask] = False
+
+        volume[foreground_mask] = 1
+        return volume
