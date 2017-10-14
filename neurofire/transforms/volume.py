@@ -6,14 +6,27 @@ from inferno.io.transform import Transform
 
 class RandomSlide(Transform):
     """Transform to randomly sample misalignments."""
-    def __init__(self, output_image_size, shift_vs_slide_proba=0.5, apply_proba=0.8, **super_kwargs):
+    def __init__(self, output_image_size=None, max_misalign=None, shift_vs_slide_proba=0.5, apply_proba=0.8, **super_kwargs):
+        # Make sure that output image size and max misalign are not both None
+        assert not (output_image_size is None and max_misalign is None)
+        # Make sure that output image size and max misalign are not set both
+        assert not (output_image_size is not None and max_misalign is not None)
+
+        if output_image_size is not None:
+            output_image_size = (output_image_size, output_image_size) \
+                if isinstance(output_image_size, int) else output_image_size
+            assert len(output_image_size) == 2, \
+                "Inconsistent output_image_size: {}. Must have 2 elements.".format(output_image_size)
+            self.output_image_size = tuple(output_image_size)
+            self.max_misalign = None
+        else:
+            self.output_image_size = None
+            self.max_misalign = (max_misalign, max_misalign) if isinstance(max_misalign, int) \
+                else max_misalign
+            assert len(self.max_misalign) == 2
+
         super(RandomSlide, self).__init__(**super_kwargs)
         # Make sure we have a 2-tuple
-        output_image_size = (output_image_size, output_image_size) \
-            if isinstance(output_image_size, int) else output_image_size
-        assert len(output_image_size) == 2, \
-            "Inconsistent output_image_size: {}. Must have 2 elements.".format(output_image_size)
-        self.output_image_size = tuple(output_image_size)
         self.shift_vs_slide_proba = shift_vs_slide_proba
         self.apply_proba = apply_proba
 
@@ -21,14 +34,14 @@ class RandomSlide(Transform):
         # Compute the available slide leeways. We have two sets of leeways - origin-ward
         # (i.e. close to the origin at top left of an image) and antiorigin-ward
         # (closer to the bottom right)
+        out_size = self.output_image_size if self.output_image_size is not None else \
+                tuple(imshape - maxmis for imshape, maxmis in zip(input_image_size, self.max_misalign))
+
         originward_leeways = tuple((_input_size - _output_size) // 2
-                                   for _input_size, _output_size in
-                                   zip(input_image_size, self.output_image_size))
+                                   for _input_size, _output_size in zip(input_image_size, out_size))
         antioriginward_leeways = tuple(_input_size - _output_size - _originward
                                        for _input_size, _output_size, _originward in
-                                       zip(input_image_size,
-                                           self.output_image_size,
-                                           originward_leeways))
+                                       zip(input_image_size, out_size, originward_leeways))
         # We have: leeways[0] = (originward, antioriginward)
         leeways = tuple(zip(originward_leeways, antioriginward_leeways))
         # Now to sample the shifts, we fix our origin on the top left corner of the input image.
@@ -54,9 +67,11 @@ class RandomSlide(Transform):
         # Kill shift if requested
         if zero_shift:
             shifts = (0, 0)
+        out_size = self.output_image_size if self.output_image_size is not None else \
+                tuple(imshape - maxmis for imshape, maxmis in zip(image.shape, self.max_misalign))
         # Get slice
         starts = tuple(_origin + _shift for _origin, _shift in zip(origin, shifts))
-        stops = tuple(_start + _size for _start, _size in zip(starts, self.output_image_size))
+        stops = tuple(_start + _size for _start, _size in zip(starts, out_size))
         slices = tuple(slice(_start, _stop) for _start, _stop in zip(starts, stops))
         # Crop and return
         return image[slices]
