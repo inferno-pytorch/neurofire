@@ -61,7 +61,7 @@ class NegativeExponentialDistanceTransform(Transform):
             return np.exp(-self.gain * distance_transform_edt(image))
         else:
             # for ISBI the labels are inverted
-            return 1-np.exp(-self.gain * distance_transform_edt(image))
+            return 1 - np.exp(-self.gain * distance_transform_edt(image))
 
 
 class Segmentation2Affinities(Transform, DtypeMapping):
@@ -243,9 +243,9 @@ class Segmentation2Affinities(Transform, DtypeMapping):
 
         # FIXME remove legacy
         # if we have a grown boundary, change affinities where we have the boundary label to 1
-        #if self.grow_boundary:
-        #    boundary_mask = (tensor == self.boundary_value).squeeze()
-        #    binarized_affinities[:, boundary_mask] = 1
+        # if self.grow_boundary:
+        #     boundary_mask = (tensor == self.boundary_value).squeeze()
+        #     binarized_affinities[:, boundary_mask] = 1
 
         # We might want to carry the segmentation along (e.g. when combining MALIS with
         # euclidean loss higher-order affinities). If this is the case, we insert the segmentation
@@ -346,6 +346,136 @@ class Segmentation2MultiOrderAffinities(Transform):
         return higher_order_affinity_tensor
 
 
+class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
+    def __init__(self, dim, offsets, dtype='float32',
+                 add_singleton_channel_dimension=False,
+                 use_gpu=False,
+                 retain_segmentation=False, **super_kwargs):
+        super(Segmentation2AffinitiesFromOffsets, self).__init__(**super_kwargs)
+        assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
+        assert len(offsets) > 0, "`offsets` must not be empty."
+
+        # TODO implement for 3d as well
+        assert dim == 2, "Not implemented in 3d yet"
+        self.dim = dim
+        self.dtype = self.DTYPE_MAPPING.get(dtype)
+        self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
+        self.offsets = offsets if isinstance(offsets, int) else tuple(offsets)
+        self.retain_segmentation = retain_segmentation
+        self.use_gpu = use_gpu
+
+    def convolve_with_shift_kernel(self, tensor, offset):
+        if isinstance(tensor, np.ndarray):
+            return self._convolve_with_shift_kernel_numpy(tensor, offset)
+        elif torch.is_tensor(tensor):
+            # TODO implement for torch input as well
+            assert False, "Not implemented for torch tensors yet"
+            return self._convolve_with_shift_kernel_torch(tensor, offset)
+        else:
+            raise NotImplementedError
+
+    def build_shift_kernels(self, offset):
+        # TODO
+        if self.dim == 3:
+            raise NotImplementedError("Not implemented yet!")
+        elif self.dim == 2:
+            # Again, the kernels are similar to conv kernels in torch.
+            # We now have 2 output
+            # channels, corresponding to (height, width)
+            shift_combined = np.zeros(shape=(1, 1, 3, 3), dtype=self.dtype)
+
+            assert len(offset) == 2
+            assert np.sum(np.abs(offset)) > 0
+
+            shift_combined[0, 0, 1, 1] = -1.
+            s_x = 1 if offset[0] == 0 else (2 if offset[0] > 0 else 0)
+            s_y = 1 if offset[1] == 0 else (2 if offset[1] > 0 else 0)
+            shift_combined[0, 0, s_x, s_y] = 1.
+            return shift_combined
+        else:
+            raise NotImplementedError
+
+    def _convolve_with_shift_kernel_numpy(self, tensor, offset):
+        if self.dim == 3:
+            # Make sure the tensor is contains 3D volumes (i.e. is 4D) with the first axis
+            # being channel
+            assert tensor.ndim == 4, "Tensor must be 4D for dim = 3."
+            assert tensor.shape[0] == 1, "Tensor must have only one channel."
+            conv = torch.nn.functional.conv3d
+        elif self.dim == 2:
+            # Make sure the tensor contains 2D images (i.e. is 3D) with the first axis
+            # being channel
+            assert tensor.ndim == 3, "Tensor must be 3D for dim = 2."
+            assert tensor.shape[0] == 1, "Tensor must have only one channel."
+            conv = torch.nn.functional.conv2d
+        else:
+            raise NotImplementedError
+        # Cast tensor to the right datatype
+        if tensor.dtype != self.dtype:
+            tensor = tensor.astype(self.dtype)
+        # Build torch variables of the right shape (i.e. with a leading singleton batch axis)
+        torch_tensor = torch.autograd.Variable(torch.from_numpy(tensor[None, ...]))
+        shift_kernel = self.build_shift_kernels(offset)
+        torch_kernel = torch.autograd.Variable(torch.from_numpy(shift_kernel))
+        # Apply convolution (with zero padding). To obtain higher order features,
+        # we apply a dilated convolution.
+        abs_offset = tuple(max(1, abs(off)) for off in offset)
+        # abs_offset = int(max(1, np.max(np.abs(offset))))
+        torch_convolved = conv(input=torch_tensor,
+                               weight=torch_kernel,
+                               padding=abs_offset,
+                               dilation=abs_offset)
+        # Extract numpy array and get rid of the singleton batch dimension
+        convolved = torch_convolved.data.numpy()[0, ...]
+        return convolved
+
+    def tensor_function(self, tensor):
+        if isinstance(tensor, np.ndarray):
+            return self._tensor_function_numpy(tensor)
+        elif torch.is_tensor(tensor):
+            # TODO
+            assert False, "Not implemented yet"
+            return self._tensor_function_torch(tensor)
+        else:
+            raise NotImplementedError
+
+    def _tensor_function_numpy(self, tensor):
+        # Add singleton channel dimension if requested
+        if self.add_singleton_channel_dimension:
+            tensor = tensor[None, ...]
+        if tensor.ndim not in [3, 4]:
+            raise NotImplementedError("Affinity map generation is only supported in 2D and 3D. "
+                                      "Did you mean to set add_singleton_channel_dimension to "
+                                      "True?")
+        if (tensor.ndim == 3 and self.dim == 2) or (tensor.ndim == 4 and self.dim == 3):
+            # Convolve tensor with a shift kernel
+            convolved_tensor = np.concatenate(
+                [self.convolve_with_shift_kernel(tensor, offset)
+                 for offset in self.offsets], axis=0)
+        elif tensor.ndim == 4 and self.dim == 2:
+            # Tensor contains 3D volumes, but the affinity maps are computed in 2D. So we loop over
+            # all z-planes and concatenate the results together
+            # TODO
+            assert False, "Not implemented yet"
+            convolved_tensor = np.stack([self.convolve_with_shift_kernel(tensor[:, z_num, ...])
+                                         for z_num in range(tensor.shape[1])], axis=1)
+        else:
+            raise NotImplementedError
+        # Threshold convolved tensor
+        binarized_affinities = np.where(convolved_tensor == 0., 1., 0.)
+        # Cast to be sure
+        if not binarized_affinities.dtype == self.dtype:
+            binarized_affinities = binarized_affinities.astype(self.dtype)
+
+        if self.retain_segmentation:
+            if tensor.dtype != self.dtype:
+                tensor = tensor.astype(self.dtype)
+            output = np.concatenate((tensor, binarized_affinities), axis=0)
+        else:
+            output = binarized_affinities
+        return output
+
+
 class ConnectedComponents2D(Transform):
     """
     Apply connected components on segmentation in 2D.
@@ -421,7 +551,6 @@ class SegmentationToBinaryLabels(Transform):
         super(SegmentationToBinaryLabels, self).__init__(**super_kwargs)
         self.background_label = background_label
         self.ignore_label = ignore_label
-
 
     def volume_function(self, volume):
         foreground_mask = volume != self.background_label
