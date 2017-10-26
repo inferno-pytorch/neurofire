@@ -355,8 +355,7 @@ class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         assert len(offsets) > 0, "`offsets` must not be empty."
 
-        # TODO implement for 3d as well
-        assert dim == 2, "Not implemented in 3d yet"
+        assert dim in (2, 3), "Affinities are only supported for 2d and 3d input"
         self.dim = dim
         self.dtype = self.DTYPE_MAPPING.get(dtype)
         self.add_singleton_channel_dimension = bool(add_singleton_channel_dimension)
@@ -375,9 +374,22 @@ class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
             raise NotImplementedError
 
     def build_shift_kernels(self, offset):
-        # TODO
         if self.dim == 3:
-            raise NotImplementedError("Not implemented yet!")
+            # Again, the kernels are similar to conv kernels in torch.
+            # We now have 2 output
+            # channels, corresponding to (height, width)
+            shift_combined = np.zeros(shape=(1, 1, 3, 3, 3), dtype=self.dtype)
+
+            assert len(offset) == 3
+            assert np.sum(np.abs(offset)) > 0
+
+            shift_combined[0, 0, 1, 1, 1] = -1.
+            s_z = 1 if offset[0] == 0 else (2 if offset[0] > 0 else 0)
+            s_y = 1 if offset[1] == 0 else (2 if offset[1] > 0 else 0)
+            s_x = 1 if offset[2] == 0 else (2 if offset[2] > 0 else 0)
+            shift_combined[0, 0, s_z, s_y, s_x] = 1.
+            return shift_combined
+
         elif self.dim == 2:
             # Again, the kernels are similar to conv kernels in torch.
             # We now have 2 output
