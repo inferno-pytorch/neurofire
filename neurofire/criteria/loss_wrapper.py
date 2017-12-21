@@ -7,7 +7,10 @@ class LossWrapper(nn.Module):
     Enables transforms before applying the criterion.
     Should be subclassed for implementation.
     """
-    def __init__(self, criterion, transforms=None):
+    def __init__(self,
+                 criterion,
+                 transforms=None,
+                 weight_function=None):
         # validate: the criterion needs to inherit from nn.Module
         assert isinstance(criterion, nn.Module)
         self.criterion = criterion
@@ -15,25 +18,25 @@ class LossWrapper(nn.Module):
         if transforms is not None:
             assert callable(transforms)
         self.transforms = transforms
+        if weight_function is not None:
+            assert callable(weight_function)
+        self.weight_function = weight_function
 
     def forward(self, prediction, target):
-        # we apply the transformations to the prediction
-
-        # TODO in
-        # https://github.com/nasimrahaman/neuro-skunkworks/blob/more-cremi/skunkworks/datasets/cremi/criteria/euclidean.py#L36
-        # we make a new variable `masked_prediction`.
-        # Is there a special reason for it (no gradients for inplace operations)
-        # or could we also write `prediction = prediction`?
+        # calculate the weight based on prediction and target
+        if self.weight_function is not None:
+            weight = self.weight_function(prediction, target)
+            self.loss.weight = weight
 
         # TODO
         # we also want an option to transform the target
 
-        if self.transforms is None:
-            transformed_prediction = self.transforms(prediction, target)
+        if self.transforms is not None:
+            transformed_prediction, transformed_target = self.transforms(prediction, target)
         else:
-            transformed_prediction = prediction
+            transformed_prediction, transformed_target = prediction, target
 
-        loss = self.criterion(transformed_prediction, target)
+        loss = self.criterion(transformed_prediction, transformed_target)
         return loss
 
 
