@@ -34,6 +34,7 @@ class TestLossTransforms(unittest.TestCase):
         trafo = MaskIgnoreLabel(0)
         target = self.make_segmentation_with_ignore(self.shape)
         ignore_mask = target == 0
+
         # make dummy torch prediction
         prediction = Variable(torch.Tensor(*self.shape).uniform_(0, 1), requires_grad=True)
         target_var = Variable(torch.from_numpy(target), requires_grad=False).float()
@@ -41,7 +42,8 @@ class TestLossTransforms(unittest.TestCase):
         self.assertEqual(prediction.size(), masked_prediction.size())
         self.assertEqual(target_.size(), target_var.size())
         self.assertTrue(np.allclose(target_.data.numpy(), target))
-        # TODO apply a loss to the prediction and check that the
+
+        # apply a loss to the prediction and check that the
         # masked parts are actually zero
 
         # binarize the targets with mod2
@@ -62,6 +64,9 @@ class TestLossTransforms(unittest.TestCase):
         grads = masked_prediction.grad.data.numpy()
         self.assertTrue((grads[ignore_mask] == 0).all())
         self.assertTrue((grads[np.logical_not(ignore_mask)] != 0).all())
+
+    def test_transition_mask(self):
+        pass
 
 
 if __name__ == '__main__':
