@@ -2,7 +2,7 @@ import numbers
 
 from torch.autograd import Variable
 
-from inferno.transforms import Transform
+from inferno.io.transform import Transform
 
 # TODO
 # Implement loss transforms
