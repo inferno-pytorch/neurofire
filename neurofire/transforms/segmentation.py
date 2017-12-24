@@ -28,8 +28,14 @@ class DtypeMapping(object):
                      'float64': 'float64',
                      'half': 'float16',
                      'float16': 'float16'}
+    INVERSE_DTYPE_MAPPING = {'float32': 'float',
+                             'float64': 'double',
+                             'float16': 'half',
+                             'int64': 'long'}
 
 
+# TODO implement retain segmentation
+# TODO test for torch and np
 class Segmentation2Membranes(Transform, DtypeMapping):
     """Convert dense segmentation to boundary-maps (or membranes)."""
     def __init__(self, dtype='float32', **super_kwargs):
@@ -38,9 +44,22 @@ class Segmentation2Membranes(Transform, DtypeMapping):
         self.dtype = self.DTYPE_MAPPING.get(dtype)
 
     def image_function(self, image):
+        if isinstance(image, np.ndarray):
+            return self._apply_numpy_tensor(image)
+        elif torch.is_tensor(image):
+            return self._apply_torch_tensor(image)
+        else:
+            raise NotImplementedError("Only support np.ndarray and torch.tensor, got %s" % type(image))
+
+    def _apply_numpy_tensor(self, image):
         gx = convolve(np.float32(image), np.array([-1., 0., 1.]).reshape(1, 3))
         gy = convolve(np.float32(image), np.array([-1., 0., 1.]).reshape(3, 1))
         return getattr(np, self.dtype)((gx ** 2 + gy ** 2) > 0)
+
+    # TODO implement and test
+    def _apply_torch_tensor(self, image):
+        conv = torch.nn.functional.conv2d
+        return
 
 
 class NegativeExponentialDistanceTransform(Transform):
@@ -310,7 +329,7 @@ class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
         elif torch.is_tensor(tensor):
             return self._tensor_function_torch(tensor)
         else:
-            raise NotImplementedError
+            raise NotImplementedError("Only support np.ndarray and torch.tensor, got %s" % type(tensor))
 
     def _tensor_function_torch(self, tensor):
         # Add singleton channel dimension if requested

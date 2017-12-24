@@ -12,25 +12,6 @@ from inferno.io.transform import Transform
 # (for affinity trafos on gpu)
 
 
-# TODO this should be moved to some more general place !
-# TODO explain what the hell is going on here ...
-def mask_shift_kernels_(kernel, dim, offset):
-    if dim == 3:
-        assert len(offset) == 3
-        s_z = 1 if offset[0] == 0 else (2 if offset[0] > 0 else 0)
-        s_y = 1 if offset[1] == 0 else (2 if offset[1] > 0 else 0)
-        s_x = 1 if offset[2] == 0 else (2 if offset[2] > 0 else 0)
-        kernel[0, 0, s_z, s_y, s_x] = 1.
-    elif dim == 2:
-        assert len(offset) == 2
-        s_x = 1 if offset[0] == 0 else (2 if offset[0] > 0 else 0)
-        s_y = 1 if offset[1] == 0 else (2 if offset[1] > 0 else 0)
-        kernel[0, 0, s_x, s_y] = 1.
-    else:
-        raise NotImplementedError
-    return kernel
-
-
 class MaskIgnoreLabel(Transform):
     """
     """
@@ -60,6 +41,24 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
 
+    # TODO explain what the hell is going on here ...
+    @staticmethod
+    def mask_shift_kernels(kernel, dim, offset):
+        if dim == 3:
+            assert len(offset) == 3
+            s_z = 1 if offset[0] == 0 else (2 if offset[0] > 0 else 0)
+            s_y = 1 if offset[1] == 0 else (2 if offset[1] > 0 else 0)
+            s_x = 1 if offset[2] == 0 else (2 if offset[2] > 0 else 0)
+            kernel[0, 0, s_z, s_y, s_x] = 1.
+        elif dim == 2:
+            assert len(offset) == 2
+            s_x = 1 if offset[0] == 0 else (2 if offset[0] > 0 else 0)
+            s_y = 1 if offset[1] == 0 else (2 if offset[1] > 0 else 0)
+            kernel[0, 0, s_x, s_y] = 1.
+        else:
+            raise NotImplementedError
+        return kernel
+
     def mask_tensor_for_offset(self, segmentation, offset):
         """
         Generate mask where a pixel is 1 if it's NOT a transition to ignore label
@@ -81,7 +80,7 @@ class MaskTransitionToIgnoreLabel(Transform):
         # Get mask where we don't have ignore label
         dont_ignore_labels_mask_variable = Variable(segmentation.data.clone().ne_(self.ignore_label),
                                                     requires_grad=False, volatile=True)
-        shift_kernels = mask_shift_kernels_(segmentation.data.new(1, 1, 3, 3, 3).zero_(), dim, offset)
+        shift_kernels = self.mask_shift_kernels(segmentation.data.new(1, 1, 3, 3, 3).zero_(), dim, offset)
         shift_kernels = Variable(shift_kernels, requires_grad=False)
         # Convolve
         abs_offset = tuple(max(1, abs(off)) for off in offset)

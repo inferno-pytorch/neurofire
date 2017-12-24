@@ -1,40 +1,30 @@
 import unittest
-import neurofire.transforms.segmentation as seg
 import numpy as np
+import torch
 
 
 class TestSegmentation(unittest.TestCase):
 
     # generate a random segmentation
-    def generate_segmentation(self, generate_2d=True):
-        shape = (1, 256, 256) if generate_2d else (1, 8, 256, 256)
+    @staticmethod
+    def generate_segmentation(shape):
         segmentation = np.zeros(shape, dtype='uint32')
-
-        current_label = 1
-        if generate_2d:
-            for y in range(shape[1]):
-                for x in range(shape[2]):
-                    segmentation[:, y, x] = current_label
-                    if np.random.random() > .8: # change label with 20% probability
-                        current_label += 1
-
-        else:
-            for z in range(shape[1]):
-                for y in range(shape[2]):
-                    for x in range(shape[3]):
-                        segmentation[:, z, y, x] = current_label
-                        if np.random.random() > .8: # change label with 20% probability
-                            current_label += 1
-
+        label = 0
+        for index in range(segmentation.size):
+            coord = np.unravel_index(index, shape)
+            segmentation[coord] = label
+            if np.random.random() > .9:  # change label with 10% probability
+                label += 1
         return segmentation
 
-
-    def generate_toy_data(self):
-        segmentation = np.zeros((10, 10), dtype='uint32')
-        segmentation[:5, :5] = 1
-        segmentation[:5, 5:] = 2
-        segmentation[5:, :5] = 3
-        segmentation[5:, 5:] = 4
+    # generate a toy segmentation
+    @staticmethod
+    def generate_toy_data():
+        seg = np.zeros((10, 10), dtype='uint32')
+        seg[:5, :5] = 1
+        seg[:5, 5:] = 2
+        seg[5:, :5] = 3
+        seg[5:, 5:] = 4
 
         aff = np.ones((2, 10, 10), dtype='float32')
         aff[0, 5, :] = 0
@@ -43,185 +33,182 @@ class TestSegmentation(unittest.TestCase):
         # these are the undefined affinities, gonna set them to 0.5 for now
         aff[0, 0, :] = 0.
         aff[1, :, 0] = 0.
+        return seg, aff
 
-        #print(segmentation)
-        #print(aff[0])
-        #print(aff[1])
-
-        return segmentation, aff
-
-
-    def affinities_brute_force(self, segmentation, dtype, order=1):
-        ndim = segmentation.ndim
-        affinities = np.zeros((ndim,) + segmentation.shape, dtype=dtype)
-
-        # get the strides (need to divide by bytesize)
-        byte_size = np.dtype(dtype).itemsize
-        strides = [s // byte_size for s in affinities.strides]
+    @staticmethod
+    def affinities_brute_force(segmentation, offsets):
+        shape = segmentation.shape
+        affinities = np.zeros((len(offsets),) + shape, dtype='float32')
 
         # iterate over all edges (== 1d affinity coordinates) to get the correct affinities
         for edge in range(affinities.size):
+            aff_coord = np.unravel_index(edge, affinities.shape)
+            offset = offsets[aff_coord[0]]
+            coord_u = aff_coord[1:]
+            coord_v = tuple(cu + off for cu, off in zip(coord_u, offset))
 
-            # translate edge-id to affinity coordinate
-            coord = [edge // strides[0]]
-            for d in range(1, ndim + 1):
-                coord.append((edge % strides[d - 1]) // strides[d])
-
-            # get the corresponding segmentation coordinates
-            axis = coord[0]
-            coord_u, coord_v = coord[1:], coord[1:]
-
-            # lower the v coordinate if it is valid, otherwise continue
-            if((coord_v[axis] - order) >= 0):
-                coord_v[axis] -= order
-            else:
+            # check if coord_v is valid
+            if any(cv < 0 or cv >= sha for cv, sha in zip(coord_v, shape)):
                 continue
 
-            coord = tuple(coord)
-            coord_u, coord_v = tuple(coord_u), tuple(coord_v)
-
-            #print(coord_u, coord_v)
-            u, v = segmentation[coord_u], segmentation[coord_v]
-
             # write the correct affinity (0 -> disconnected, 1 -> connected)
-            if u == v:
-                affinities[coord] = 1
-            else:
-                affinities[coord] = 0
+            u, v = segmentation[coord_u], segmentation[coord_v]
+            affinities[aff_coord] = 1. if u == v else 0.
 
         return affinities
 
-    def test_brute_force_toy(self):
+    def test_seg2mem(self):
+        from neurofire.transforms.segmentation import Segmentation2Membranes
+        trafo = Segmentation2Membranes()
+        for dim in (2, 3):
+            shape = dim * (128, )
+            seg = self.generate_segmentation(shape)
+            membranes = trafo(seg)
+            self.assertEqual(membranes.shape, shape)
+            # TODO torch tensor, check that agree
+
+    def test_brute_force_affs_toy(self):
+        offsets = [(-1, 0), (0, -1)]
         segmentation, expected = self.generate_toy_data()
-        output = self.affinities_brute_force(segmentation, expected.dtype)
-        #print(output[0])
-        #print(output[1])
+        output = self.affinities_brute_force(segmentation, offsets)
         self.assertEqual(output.shape, expected.shape)
-        self.assertTrue((output == expected).all())
+        self.assertTrue(np.allclose(output, expected))
 
-
-    def test_toy(self):
+    def test_affs_toy(self):
+        from neurofire.transforms.segmentation import Segmentation2Affinities
         segmentation, expected = self.generate_toy_data()
-        transform = seg.Segmentation2Affinities(dim=2)
+        transform = Segmentation2Affinities(dim=2)
         output = transform(segmentation[None, :]).squeeze()
-        #print(output[0])
-        #print(output[0])
         self.assertEqual(output.shape, expected.shape)
-        self.assertTrue((output == expected).all())
+        self.assertTrue(np.allclose(output, expected))
 
+    def test_affs_random(self):
+        from neurofire.transforms.segmentation import Segmentation2Affinities
 
-    def test_segmentation2affinitiy_random(self):
         # 3D with 3D affinities
         wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
         # Build transform
-        transform = seg.Segmentation2Affinities(dim=3)
+        transform = Segmentation2Affinities(dim=3)
         output = transform(wannabe_groundtruth)
         self.assertSequenceEqual((16, 512, 512), output.shape[1:])
         self.assertEqual(output.shape[0], 3)
+
         # 3D with 2D affinities
         wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
         # Build transform
-        transform = seg.Segmentation2Affinities(dim=2)
+        transform = Segmentation2Affinities(dim=2)
         output = transform(wannabe_groundtruth)
         self.assertSequenceEqual((16, 512, 512), output.shape[1:])
         self.assertEqual(output.shape[0], 2)
+
         # 2D with 2D affinities
         wannabe_groundtruth = np.random.uniform(size=(1, 512, 512))
         # Build transform
-        transform = seg.Segmentation2Affinities(dim=2)
+        transform = Segmentation2Affinities(dim=2)
         output = transform(wannabe_groundtruth)
         self.assertSequenceEqual((512, 512), output.shape[1:])
         self.assertEqual(output.shape[0], 2)
 
+    def test_affs_2d_orders(self):
+        from neurofire.transforms.segmentation import Segmentation2Affinities
+        shape = (1, 128, 128)
+        segmentation = self.generate_segmentation(shape)
 
-    def test_segmentation2affinitiy_2D(self):
-        segmentation = self.generate_segmentation()
+        def order_to_offsets(order):
+            return [(-order, 0), (0, -order)]
 
         for order in (1, 2, 3, 5, 7, 20):
             # output from the segmentation module
-            transform = seg.Segmentation2Affinities(dim=2, order=order)
+            transform = Segmentation2Affinities(dim=2, order=order)
             output = transform(segmentation).squeeze()
 
-            # brute force loop
-            output_expected = self.affinities_brute_force(segmentation.squeeze(), output.dtype, order)
+            output_expected = self.affinities_brute_force(segmentation.squeeze(),
+                                                          order_to_offsets(order))
 
             self.assertEqual(output.shape, output_expected.shape)
-            self.assertTrue((output == output_expected).all())
+            self.assertTrue(np.allclose(output, output_expected))
 
-    def test_multi_order_affinities_2D(self):
-        segmentation = self.generate_segmentation()
-        transform = seg.Segmentation2MultiOrderAffinities(dim=2, orders=[1, 2])
-        output = transform(segmentation)
-        self.assertEqual(output.shape[0], 4)
-        order_1_affinities = self.affinities_brute_force(segmentation.squeeze(), output.dtype,
-                                                         order=1)
-        order_2_affinities = self.affinities_brute_force(segmentation.squeeze(), output.dtype,
-                                                         order=2)
-        self.assertTrue((output[:2].squeeze() == order_1_affinities).all())
-        self.assertTrue((output[2:].squeeze() == order_2_affinities).all())
+    def test_affs_3d_orders(self):
+        from neurofire.transforms.segmentation import Segmentation2Affinities
+        shape = (1, 128, 128, 128)
+        segmentation = self.generate_segmentation(shape)
 
-    def test_segmentation2affinitiy_3D(self):
-        segmentation = self.generate_segmentation(False)
+        def order_to_offsets(order):
+            return [(-order, 0, 0), (0, -order, 0), (0, 0, -order)]
 
         for order in (1, 2, 3, 5, 7, 20):
-            #print('Testing order', order, 'affinities in 3d')
             # output from the segmentation module
-            transform = seg.Segmentation2Affinities(dim=3, order=order)
+            transform = Segmentation2Affinities(dim=3, order=order)
             output = transform(segmentation).squeeze()
 
-            # brute force loop
-            output_expected = self.affinities_brute_force(segmentation.squeeze(), output.dtype, order)
+            output_expected = self.affinities_brute_force(segmentation.squeeze(),
+                                                          order_to_offsets(order))
 
             self.assertEqual(output.shape, output_expected.shape)
-            self.assertTrue((output == output_expected).all())
+            self.assertTrue(np.allclose(output, output_expected))
 
+    # TODO takes extremely long
+    # TODO test for 2D
+    def _test_affs_from_offsets_3D(self):
+        from neurofire.transforms.segmentation import Segmentation2AffinitiesFromOffsets
+        shape = (1, 128, 128, 128)
+        segmentation = self.generate_segmentation(shape).astype('int32')
+        seg_torch = torch.from_numpy(segmentation)
+
+        offsets = [(1, 0, 0), (0, 1, 0), (0, 0, 1),
+                   (3, 0, 0), (0, 3, 0), (0, 0, 3),
+                   (1, 1, 0), (-1, 1, 0),
+                   (1, 0, 1), (1, 1, 0),
+                   (1, 0, -1), (1, -1, 0)]
+
+        trafo = Segmentation2AffinitiesFromOffsets(3, offsets,
+                                                   add_singleton_channel_dimension=False)
+        output = trafo(seg_torch).numpy()
+        output_expected = self.affinities_brute_force(segmentation.squeeze(), offsets)
+        self.assertEqual(output.shape, output_expected.shape)
+        self.assertTrue(np.allclose(output, output_expected))
 
     def test_cc_2d(self):
-        x = np.array(
-            [[1, 1, 0, 1, 1],
-             [1, 1, 0, 0, 1],
-             [1, 0, 1, 0, 0],
-             [1, 0, 1, 1, 0],
-             [0, 1, 1, 1, 1]],
-            dtype='uint32'
-        )
+        from neurofire.transforms.segmentation import ConnectedComponents2D
+        x = np.array([[1, 1, 0, 1, 1],
+                      [1, 1, 0, 0, 1],
+                      [1, 0, 1, 0, 0],
+                      [1, 0, 1, 1, 0],
+                      [0, 1, 1, 1, 1]],
+                     dtype='uint32')
         for label_segmentation in (False, True):
-            cc = seg.ConnectedComponents2D(label_segmentation=label_segmentation)
+            cc = ConnectedComponents2D(label_segmentation=label_segmentation)
             y = cc(x)
             self.assertEqual(y.shape, x.shape)
             uniques = np.unique(y).tolist()
             self.assertEqual(uniques, [0, 1, 2, 3])
 
-
     def test_cc_3d(self):
-        x = np.array(
-            [[[1, 1, 0],
-              [1, 0, 0],
-              [0, 0, 1]],
-             [[1, 0, 0],
-              [0, 1, 0],
-              [0, 0, 0]],
-             [[1, 0, 1],
-              [0, 0, 0],
-              [0, 0, 0]]],
-            dtype='uint32'
-        )
+        from neurofire.transforms.segmentation import ConnectedComponents3D
+        x = np.array([[[1, 1, 0],
+                       [1, 0, 0],
+                       [0, 0, 1]],
+                      [[1, 0, 0],
+                       [0, 1, 0],
+                       [0, 0, 0]],
+                      [[1, 0, 1],
+                       [0, 0, 0],
+                       [0, 0, 0]]],
+                     dtype='uint32')
         for label_segmentation in (False, True):
-            cc = seg.ConnectedComponents3D(label_segmentation=label_segmentation)
+            cc = ConnectedComponents3D(label_segmentation=label_segmentation)
             y = cc(x)
             self.assertEqual(y.shape, x.shape)
             uniques = np.unique(y).tolist()
             self.assertEqual(uniques, [0, 1, 2, 3, 4])
 
-
     def test_cc_label_segmentation(self):
-        x = np.array(
-            [[1, 2, 1],
-             [1, 1, 1],
-             [1, 2, 1]],
-            dtype='uint32'
-        )
-        cc = seg.ConnectedComponents2D(label_segmentation=True)
+        from neurofire.transforms.segmentation import ConnectedComponents2D
+        x = np.array([[1, 2, 1],
+                      [1, 1, 1],
+                      [1, 2, 1]],
+                     dtype='uint32')
+        cc = ConnectedComponents2D(label_segmentation=True)
         y = cc(x)
         self.assertEqual(y.shape, x.shape)
         uniques = np.unique(y).tolist()

@@ -31,17 +31,20 @@ class TestLossTransforms(unittest.TestCase):
 
     def test_mask_ignore_label(self):
         from neurofire.criteria.loss_transforms import MaskIgnoreLabel
+        from neurofire.transforms.segmentation import Segmentation2Membranes
         trafo = MaskIgnoreLabel(0)
-        target = self.make_segmentation_with_ignore(self.shape)
-        ignore_mask = target == 0
+        seg_trafo = Segmentation2Membranes()
+
+        seg = self.make_segmentation_with_ignore(self.shape)
+        ignore_mask = seg == 0
+        target = seg_trafo(seg)
 
         # make dummy torch prediction
         prediction = Variable(torch.Tensor(*self.shape).uniform_(0, 1), requires_grad=True)
-        target_var = Variable(torch.from_numpy(target), requires_grad=False).float()
-        masked_prediction, target_ = trafo(prediction, target_var)
+        masked_prediction, _ = trafo(prediction, seg_var)
         self.assertEqual(prediction.size(), masked_prediction.size())
-        self.assertEqual(target_.size(), target_var.size())
-        self.assertTrue(np.allclose(target_.data.numpy(), target))
+        self.assertEqual(target.size(), seg_var.size())
+        self.assertTrue(np.allclose(target.data.numpy(), target))
 
         # apply a loss to the prediction and check that the
         # masked parts are actually zero
@@ -66,7 +69,18 @@ class TestLossTransforms(unittest.TestCase):
         self.assertTrue((grads[np.logical_not(ignore_mask)] != 0).all())
 
     def test_transition_mask(self):
-        pass
+        from neurofire.criteria.loss_transforms import MaskTransitionToIgnoreLabel
+        from neurofire.transforms.segmentation import Segmentation2AffinitiesFromOffsets
+
+        offsets = [(1, 0, 0), (0, 1, 0), (0, 0, 1),
+                   (9, 0, 0), (0, 9, 0), (0, 0, 9),
+                   (9, 4, 0), (4, 9, 0), (9, 0, 9)]
+        trafo = MaskTransitionToIgnoreLabel(offsets, ignore_label=0)
+        aff_trafo = Segmentation2AffinitiesFromOffsets(3, offsets, retain_segmentation=True)
+
+        seg = self.make_segmentation_with_ignore(self.shape)
+        target = aff_trafo(seg)
+        ignore_mask = seg == 0
 
 
 if __name__ == '__main__':
