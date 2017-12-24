@@ -59,6 +59,7 @@ class Segmentation2Membranes(Transform, DtypeMapping):
     # TODO implement and test
     def _apply_torch_tensor(self, image):
         conv = torch.nn.functional.conv2d
+        kernel = image.new(1, 3, 3).zero_()
         return
 
 

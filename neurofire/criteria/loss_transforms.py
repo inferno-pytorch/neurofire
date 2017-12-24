@@ -98,7 +98,7 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         # validate the prediction
-        assert prediction.dim() == 5
+        assert prediction.dim() == 5, prediction.dim()
         assert prediction.size(1) == len(self.offsets), "%i, %i" % (prediction.size(1), len(self.offsets))
 
         # validate target and extract segmentation from the target

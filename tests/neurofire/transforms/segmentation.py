@@ -61,11 +61,13 @@ class TestSegmentation(unittest.TestCase):
         from neurofire.transforms.segmentation import Segmentation2Membranes
         trafo = Segmentation2Membranes()
         for dim in (2, 3):
-            shape = dim * (128, )
+            shape = dim * (128,)
             seg = self.generate_segmentation(shape)
             membranes = trafo(seg)
             self.assertEqual(membranes.shape, shape)
-            # TODO torch tensor, check that agree
+            # make for torch tensor, check that agree
+            # membranes_torch =
+            # self.assertEqual(membranes_torch.shape, shape)
 
     def test_brute_force_affs_toy(self):
         offsets = [(-1, 0), (0, -1)]
@@ -109,15 +111,17 @@ class TestSegmentation(unittest.TestCase):
         self.assertSequenceEqual((512, 512), output.shape[1:])
         self.assertEqual(output.shape[0], 2)
 
+    # FIXME outputs do not agree 100 %
     def test_affs_2d_orders(self):
         from neurofire.transforms.segmentation import Segmentation2Affinities
-        shape = (1, 128, 128)
+        shape = (1, 64, 64)
         segmentation = self.generate_segmentation(shape)
 
         def order_to_offsets(order):
             return [(-order, 0), (0, -order)]
 
         for order in (1, 2, 3, 5, 7, 20):
+            print("2D Test: Checking order", order)
             # output from the segmentation module
             transform = Segmentation2Affinities(dim=2, order=order)
             output = transform(segmentation).squeeze()
@@ -126,17 +130,24 @@ class TestSegmentation(unittest.TestCase):
                                                           order_to_offsets(order))
 
             self.assertEqual(output.shape, output_expected.shape)
+            print(output.shape)
+            print(np.sum(np.isclose(output, output_expected)), '/', output.size)
+            where = np.where(np.logical_not(np.isclose(output, output_expected)))
+            print(where)
+            print(output[where], output_expected[where])
             self.assertTrue(np.allclose(output, output_expected))
 
+    # FIXME outputs do not agree 100 %
     def test_affs_3d_orders(self):
         from neurofire.transforms.segmentation import Segmentation2Affinities
-        shape = (1, 128, 128, 128)
+        shape = (1, 64, 64, 64)
         segmentation = self.generate_segmentation(shape)
 
         def order_to_offsets(order):
             return [(-order, 0, 0), (0, -order, 0), (0, 0, -order)]
 
         for order in (1, 2, 3, 5, 7, 20):
+            print("3D Test: Checking order", order)
             # output from the segmentation module
             transform = Segmentation2Affinities(dim=3, order=order)
             output = transform(segmentation).squeeze()
@@ -145,27 +156,27 @@ class TestSegmentation(unittest.TestCase):
                                                           order_to_offsets(order))
 
             self.assertEqual(output.shape, output_expected.shape)
+            print(np.sum(np.isclose(output, output_expected)), '/', output.size)
             self.assertTrue(np.allclose(output, output_expected))
 
-    # TODO takes extremely long
+    # FIXME outputs do not agree 100 %
     # TODO test for 2D
-    def _test_affs_from_offsets_3D(self):
+    def test_affs_from_offsets_3D(self):
         from neurofire.transforms.segmentation import Segmentation2AffinitiesFromOffsets
-        shape = (1, 128, 128, 128)
+        shape = (1, 64, 64, 64)
         segmentation = self.generate_segmentation(shape).astype('int32')
         seg_torch = torch.from_numpy(segmentation)
 
         offsets = [(1, 0, 0), (0, 1, 0), (0, 0, 1),
                    (3, 0, 0), (0, 3, 0), (0, 0, 3),
-                   (1, 1, 0), (-1, 1, 0),
-                   (1, 0, 1), (1, 1, 0),
-                   (1, 0, -1), (1, -1, 0)]
+                   (1, 1, 0), (-1, 1, 0)]
 
         trafo = Segmentation2AffinitiesFromOffsets(3, offsets,
                                                    add_singleton_channel_dimension=False)
         output = trafo(seg_torch).numpy()
         output_expected = self.affinities_brute_force(segmentation.squeeze(), offsets)
         self.assertEqual(output.shape, output_expected.shape)
+        print(np.sum(np.isclose(output, output_expected)), '/', output.size)
         self.assertTrue(np.allclose(output, output_expected))
 
     def test_cc_2d(self):
