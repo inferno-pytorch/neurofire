@@ -3,7 +3,6 @@ from inferno.io.transform import Compose
 from inferno.io.transform.generic import Cast
 from inferno.utils import python_utils as pyu
 from ....transform.segmentation import Segmentation2Membranes, Segmentation2Affinities
-from ....transform.segmentation import Segmentation2MultiOrderAffinities
 from ....transform.segmentation import NegativeExponentialDistanceTransform
 from ....transform.segmentation import ConnectedComponents3D
 
@@ -49,6 +48,7 @@ class AffinityVolume(MembraneVolume):
         del self.nedt_gain
 
     def get_transforms(self):
+        from ....transform.segmentation import Segmentation2MultiOrderAffinities
         # The Segmentation2Affinities adds a channel dimension. Now depending on how many
         # orders were requested, we dispatch Segmentation2Affinities or
         # Segmentation2MultiOrderAffinities.
