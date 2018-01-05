@@ -24,11 +24,25 @@ class MaskIgnoreLabel(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        # FIXME I am not sure if this does the right thing, need test !
         mask_variable = Variable(target.data.clone().ne(float(self.ignore_label)).float(),
                                  requires_grad=False).expand_as(prediction)
         masked_prediction = prediction * mask_variable
         return masked_prediction, target
+
+
+class RemoveSegmentationFromTarget(Transform):
+    """
+    Remove the zeroth channel (== segmentation when `retain_segmentation` is used)
+    from the target.
+    """
+    def __init__(self, **super_kwargs):
+        super(RemoveSegmentationFromTarget, self).__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        target = target[:, 0:1]
+        return prediction, target
 
 
 class MaskTransitionToIgnoreLabel(Transform):

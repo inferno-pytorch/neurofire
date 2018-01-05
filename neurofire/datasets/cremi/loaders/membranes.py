@@ -2,10 +2,10 @@ from inferno.io.volumetric import HDF5VolumeLoader
 from inferno.io.transform import Compose
 from inferno.io.transform.generic import Cast
 from inferno.utils import python_utils as pyu
-from ....transforms.segmentation import Segmentation2Membranes, Segmentation2Affinities
-from ....transforms.segmentation import Segmentation2MultiOrderAffinities
-from ....transforms.segmentation import NegativeExponentialDistanceTransform
-from ....transforms.segmentation import ConnectedComponents3D
+from ....transform.segmentation import Segmentation2Membranes, Segmentation2Affinities
+from ....transform.segmentation import Segmentation2MultiOrderAffinities
+from ....transform.segmentation import NegativeExponentialDistanceTransform
+from ....transform.segmentation import ConnectedComponents3D
 
 
 class MembraneVolume(HDF5VolumeLoader):

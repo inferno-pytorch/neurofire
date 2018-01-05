@@ -58,7 +58,7 @@ class TestSegmentation(unittest.TestCase):
         return affinities
 
     def test_seg2mem(self):
-        from neurofire.transforms.segmentation import Segmentation2Membranes
+        from neurofire.transform.segmentation import Segmentation2Membranes
         trafo = Segmentation2Membranes()
         for dim in (2, 3):
             shape = dim * (128,)
@@ -77,7 +77,7 @@ class TestSegmentation(unittest.TestCase):
         self.assertTrue(np.allclose(output, expected))
 
     def test_affs_toy(self):
-        from neurofire.transforms.segmentation import Segmentation2Affinities
+        from neurofire.transform.segmentation import Segmentation2Affinities
         segmentation, expected = self.generate_toy_data()
         transform = Segmentation2Affinities(dim=2)
         output = transform(segmentation[None, :]).squeeze()
@@ -85,7 +85,7 @@ class TestSegmentation(unittest.TestCase):
         self.assertTrue(np.allclose(output, expected))
 
     def test_affs_random(self):
-        from neurofire.transforms.segmentation import Segmentation2Affinities
+        from neurofire.transform.segmentation import Segmentation2Affinities
 
         # 3D with 3D affinities
         wannabe_groundtruth = np.random.uniform(size=(1, 16, 512, 512))
@@ -113,7 +113,7 @@ class TestSegmentation(unittest.TestCase):
 
     # FIXME outputs do not agree 100 %
     def test_affs_2d_orders(self):
-        from neurofire.transforms.segmentation import Segmentation2Affinities
+        from neurofire.transform.segmentation import Segmentation2Affinities
         shape = (1, 64, 64)
         segmentation = self.generate_segmentation(shape)
 
@@ -139,7 +139,7 @@ class TestSegmentation(unittest.TestCase):
 
     # FIXME outputs do not agree 100 %
     def test_affs_3d_orders(self):
-        from neurofire.transforms.segmentation import Segmentation2Affinities
+        from neurofire.transform.segmentation import Segmentation2Affinities
         shape = (1, 64, 64, 64)
         segmentation = self.generate_segmentation(shape)
 
@@ -162,7 +162,7 @@ class TestSegmentation(unittest.TestCase):
     # FIXME outputs do not agree 100 %
     # TODO test for 2D
     def test_affs_from_offsets_3D(self):
-        from neurofire.transforms.segmentation import Segmentation2AffinitiesFromOffsets
+        from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
         shape = (1, 64, 64, 64)
         segmentation = self.generate_segmentation(shape).astype('int32')
         seg_torch = torch.from_numpy(segmentation)
@@ -180,7 +180,7 @@ class TestSegmentation(unittest.TestCase):
         self.assertTrue(np.allclose(output, output_expected))
 
     def test_cc_2d(self):
-        from neurofire.transforms.segmentation import ConnectedComponents2D
+        from neurofire.transform.segmentation import ConnectedComponents2D
         x = np.array([[1, 1, 0, 1, 1],
                       [1, 1, 0, 0, 1],
                       [1, 0, 1, 0, 0],
@@ -195,7 +195,7 @@ class TestSegmentation(unittest.TestCase):
             self.assertEqual(uniques, [0, 1, 2, 3])
 
     def test_cc_3d(self):
-        from neurofire.transforms.segmentation import ConnectedComponents3D
+        from neurofire.transform.segmentation import ConnectedComponents3D
         x = np.array([[[1, 1, 0],
                        [1, 0, 0],
                        [0, 0, 1]],
@@ -214,7 +214,7 @@ class TestSegmentation(unittest.TestCase):
             self.assertEqual(uniques, [0, 1, 2, 3, 4])
 
     def test_cc_label_segmentation(self):
-        from neurofire.transforms.segmentation import ConnectedComponents2D
+        from neurofire.transform.segmentation import ConnectedComponents2D
         x = np.array([[1, 2, 1],
                       [1, 1, 1],
                       [1, 2, 1]],

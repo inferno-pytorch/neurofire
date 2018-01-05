@@ -1,5 +1,5 @@
 import unittest
-import neurofire.transforms.volume as vol
+import neurofire.transform.volume as vol
 import numpy as np
 # import torch
 
