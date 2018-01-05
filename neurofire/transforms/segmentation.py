@@ -34,6 +34,7 @@ class DtypeMapping(object):
                              'int64': 'long'}
 
 
+# TODO remain to Segmentation2Edges ?!
 # TODO implement retain segmentation
 # TODO test for torch and np
 class Segmentation2Membranes(Transform, DtypeMapping):

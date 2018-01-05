@@ -28,9 +28,6 @@ class LossWrapper(nn.Module):
             weight = self.weight_function(prediction, target)
             self.loss.weight = weight
 
-        # TODO
-        # we also want an option to transform the target
-
         if self.transforms is not None:
             transformed_prediction, transformed_target = self.transforms(prediction, target)
         else:

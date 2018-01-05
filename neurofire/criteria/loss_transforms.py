@@ -6,12 +6,11 @@ from torch.nn.functional import conv3d
 
 from inferno.io.transform import Transform
 
-# TODO implement all the different masking functions
-
 # TODO provide functionality to do trafos on gpu ?!?
 # (for affinity trafos on gpu)
 
 
+# TODO expect retain segmentation
 class MaskIgnoreLabel(Transform):
     """
     """
@@ -26,7 +25,7 @@ class MaskIgnoreLabel(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         # FIXME I am not sure if this does the right thing, need test !
-        mask_variable = Variable(target.data.clone().eq(float(self.ignore_label)).float(),
+        mask_variable = Variable(target.data.clone().ne(float(self.ignore_label)).float(),
                                  requires_grad=False).expand_as(prediction)
         masked_prediction = prediction * mask_variable
         return masked_prediction, target
@@ -107,10 +106,6 @@ class MaskTransitionToIgnoreLabel(Transform):
 
         # get the individual mask for the offsets
         masks = [self.mask_tensor_for_offset(segmentation, offset) for offset in self.offsets]
-
-        # Expand to the right size along the channel axis
-        # TODO woot ?!
-        # masks = [mask for mask in masks]
 
         # Concatenate to one tensor
         master_mask = torch.cat(tuple(masks), 1)

@@ -29,6 +29,45 @@ class TestLossTransforms(unittest.TestCase):
         seg[mask] = 0
         return seg
 
+    @staticmethod
+    def brute_force_transition_masking(segmentation, offsets, ignore_value=0):
+        # squeeze away the batch dimension
+        segmentation = segmentation.squeeze()
+        ndim = segmentation.ndim
+        shape = segmentation.shape
+        n_channels = len(offsets)
+        mask_shape = (n_channels,) + shape
+        mask = np.zeros(mask_shape, dtype='bool')
+
+        # get the strides (need to divide by bytesize)
+        byte_size = np.dtype(mask.dtype).itemsize
+        strides = [s // byte_size for s in mask.strides]
+
+        # iterate over all edges (== 1d affinity coordinates) to get the masking values
+        for edge in range(mask.size):
+
+            # translate edge-id to affinity coordinate
+            coord = (edge // strides[0],)
+            coord = coord + tuple((edge % strides[d - 1]) // strides[d] for d in range(1, ndim + 1))
+
+            # get the current offset
+            offset = offsets[coord[0]]
+            # get the spatial coordinates
+            coord_u, coord_v = coord[1:], coord[1:]
+            # apply the offset to coord v
+            coord_v = tuple(cv + off for cv, off in zip(coord_v, offset))
+
+            # check if coord v is valid, if not, set mask and continue
+            if(not all(0 <= cv < sha for cv, sha in zip(coord_v, shape))):
+                mask[coord] = True
+                continue
+
+            u, v = segmentation[coord_u], segmentation[coord_v]
+            if u == ignore_value or v == ignore_value:
+                mask[coord] = True
+
+        return mask
+
     def test_mask_ignore_label(self):
         from neurofire.criteria.loss_transforms import MaskIgnoreLabel
         from neurofire.transforms.segmentation import Segmentation2Membranes
@@ -46,7 +85,12 @@ class TestLossTransforms(unittest.TestCase):
 
         # make dummy torch prediction
         prediction = Variable(torch.Tensor(*self.shape).uniform_(0, 1), requires_grad=True)
+        # NOTE Can't check that target is not altered here, because we give the segmentation and not
+        # the target to the transformation
+        # We could check the segmentation, but in the long run, we wan't something like
+        # retain_segmentation also for `Segmentation2Membranes`
         masked_prediction, _ = trafo(prediction, seg_var)
+
         self.assertEqual(prediction.size(), masked_prediction.size())
 
         # apply a loss to the prediction and check that the
@@ -59,8 +103,7 @@ class TestLossTransforms(unittest.TestCase):
         loss = criterium(masked_prediction, target)
         loss.backward()
 
-        # FIXME why no gradients ?
-        grads = masked_prediction.grad.data.numpy()
+        grads = prediction.grad.data.numpy()
         self.assertTrue((grads[ignore_mask] == 0).all())
         self.assertTrue((grads[np.logical_not(ignore_mask)] != 0).all())
 
@@ -76,18 +119,17 @@ class TestLossTransforms(unittest.TestCase):
                                                        add_singleton_channel_dimension=True)
 
         seg = self.make_segmentation_with_ignore(self.shape)
-        ignore_mask = seg == 0
+        ignore_mask = self.brute_force_transition_masking(seg, offsets)
         target = Variable(torch.Tensor(aff_trafo(seg.astype('float32'))[None]),
                           requires_grad=False)
 
         tshape = target.size()
         pshape = (tshape[0], tshape[1] - 1) + tshape[2:]
         prediction = Variable(torch.Tensor(*pshape).uniform_(0, 1), requires_grad=True)
-        print(target.size(), prediction.size())
         masked_prediction, target_ = trafo(prediction, target)
+
         self.assertEqual(masked_prediction.size(), prediction.size())
         self.assertEqual(target.size(), target_.size())
-
         self.assertTrue(np.allclose(target.data.numpy(), target_.data.numpy()))
 
         # apply cross entropy loss
@@ -99,10 +141,10 @@ class TestLossTransforms(unittest.TestCase):
         loss = criterium(masked_prediction, target)
         loss.backward()
 
-        # FIXME why no gradients ?
-        grads = masked_prediction.grad.data.numpy()
+        grads = prediction.grad.data.numpy().squeeze()
+        self.assertEqual(grads.shape, ignore_mask.shape)
         self.assertTrue((grads[ignore_mask] == 0).all())
-        self.assertTrue((grads[np.logical_not(ignore_mask)] != 0).all())
+        self.assertFalse(np.sum(grads[np.logical_not(ignore_mask)]) == 0)
 
 
 if __name__ == '__main__':
