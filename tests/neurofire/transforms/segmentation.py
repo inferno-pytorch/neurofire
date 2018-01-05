@@ -15,7 +15,7 @@ class TestSegmentation(unittest.TestCase):
             for y in range(shape[1]):
                 for x in range(shape[2]):
                     segmentation[:, y, x] = current_label
-                    if np.random.random() > .8: # change label with 20% probability
+                    if np.random.random() > .8:  # change label with 20% probability
                         current_label += 1
 
         else:
@@ -23,11 +23,10 @@ class TestSegmentation(unittest.TestCase):
                 for y in range(shape[2]):
                     for x in range(shape[3]):
                         segmentation[:, z, y, x] = current_label
-                        if np.random.random() > .8: # change label with 20% probability
+                        if np.random.random() > .8:  # change label with 20% probability
                             current_label += 1
 
         return segmentation
-
 
     def generate_toy_data(self):
         segmentation = np.zeros((10, 10), dtype='uint32')
@@ -43,13 +42,7 @@ class TestSegmentation(unittest.TestCase):
         # these are the undefined affinities, gonna set them to 0.5 for now
         aff[0, 0, :] = 0.
         aff[1, :, 0] = 0.
-
-        #print(segmentation)
-        #print(aff[0])
-        #print(aff[1])
-
         return segmentation, aff
-
 
     def affinities_brute_force(self, segmentation, dtype, order=1):
         ndim = segmentation.ndim
@@ -79,8 +72,6 @@ class TestSegmentation(unittest.TestCase):
 
             coord = tuple(coord)
             coord_u, coord_v = tuple(coord_u), tuple(coord_v)
-
-            #print(coord_u, coord_v)
             u, v = segmentation[coord_u], segmentation[coord_v]
 
             # write the correct affinity (0 -> disconnected, 1 -> connected)
@@ -94,21 +85,15 @@ class TestSegmentation(unittest.TestCase):
     def test_brute_force_toy(self):
         segmentation, expected = self.generate_toy_data()
         output = self.affinities_brute_force(segmentation, expected.dtype)
-        #print(output[0])
-        #print(output[1])
         self.assertEqual(output.shape, expected.shape)
         self.assertTrue((output == expected).all())
-
 
     def test_toy(self):
         segmentation, expected = self.generate_toy_data()
         transform = seg.Segmentation2Affinities(dim=2)
         output = transform(segmentation[None, :]).squeeze()
-        #print(output[0])
-        #print(output[0])
         self.assertEqual(output.shape, expected.shape)
         self.assertTrue((output == expected).all())
-
 
     def test_segmentation2affinitiy_random(self):
         # 3D with 3D affinities
@@ -132,7 +117,6 @@ class TestSegmentation(unittest.TestCase):
         output = transform(wannabe_groundtruth)
         self.assertSequenceEqual((512, 512), output.shape[1:])
         self.assertEqual(output.shape[0], 2)
-
 
     def test_segmentation2affinitiy_2D(self):
         segmentation = self.generate_segmentation()
@@ -164,7 +148,6 @@ class TestSegmentation(unittest.TestCase):
         segmentation = self.generate_segmentation(False)
 
         for order in (1, 2, 3, 5, 7, 20):
-            #print('Testing order', order, 'affinities in 3d')
             # output from the segmentation module
             transform = seg.Segmentation2Affinities(dim=3, order=order)
             output = transform(segmentation).squeeze()
@@ -174,7 +157,6 @@ class TestSegmentation(unittest.TestCase):
 
             self.assertEqual(output.shape, output_expected.shape)
             self.assertTrue((output == output_expected).all())
-
 
     def test_cc_2d(self):
         x = np.array(
@@ -191,7 +173,6 @@ class TestSegmentation(unittest.TestCase):
             self.assertEqual(y.shape, x.shape)
             uniques = np.unique(y).tolist()
             self.assertEqual(uniques, [0, 1, 2, 3])
-
 
     def test_cc_3d(self):
         x = np.array(
@@ -212,7 +193,6 @@ class TestSegmentation(unittest.TestCase):
             self.assertEqual(y.shape, x.shape)
             uniques = np.unique(y).tolist()
             self.assertEqual(uniques, [0, 1, 2, 3, 4])
-
 
     def test_cc_label_segmentation(self):
         x = np.array(
