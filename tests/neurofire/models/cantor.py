@@ -6,7 +6,7 @@ class TestCantor(unittest.TestCase):
     def test_cantor_initiator(self):
         import torch
         from torch.autograd import Variable
-        import neurofire.models.cantor as cantor
+        import neurofire.models.cantor.cantor as cantor
         # Build model
         initiator = cantor.CantorInitiator(3, base_width=30)
         # Build dummy input
@@ -29,7 +29,7 @@ class TestCantor(unittest.TestCase):
     def test_cantor_module(self):
         import torch
         from torch.autograd import Variable
-        import neurofire.models.cantor as cantor
+        import neurofire.models.cantor.cantor as cantor
         from inferno.extensions.containers.sequential import Sequential2
         # Build model
         initiator = cantor.CantorInitiator(3, base_width=30)
@@ -53,7 +53,7 @@ class TestCantor(unittest.TestCase):
     def test_cantor_terminator(self):
         import torch
         from torch.autograd import Variable
-        import neurofire.models.cantor as cantor
+        import neurofire.models.cantor.cantor as cantor
         from inferno.extensions.containers.sequential import Sequential2
         # Build model
         initiator = cantor.CantorInitiator(3, base_width=30)
@@ -69,7 +69,7 @@ class TestCantor(unittest.TestCase):
     def test_cantor(self):
         import torch
         from torch.autograd import Variable
-        import neurofire.models.cantor as cantor
+        import neurofire.models.cantor.cantor as cantor
 
         input_shape = [1, 1, 3, 128, 128]
         model = cantor.Cantor.from_shape(input_shape=input_shape,
@@ -80,6 +80,7 @@ class TestCantor(unittest.TestCase):
         output = model(input)
         self.assertEqual(list(output.size()), input_shape)
 
-if __name__ == '__main__':
-    unittest.main([__file__])
 
+if __name__ == '__main__':
+    # unittest.main([__file__])
+    unittest.main()

@@ -5,7 +5,7 @@ from inferno.utils.model_utils import ModelTester
 
 class ModelTest(unittest.TestCase):
     def test_unet_2d(self):
-        from neurofire.models.unet import UNet2D
+        from neurofire.models import UNet2D
         tester = ModelTester((1, 1, 512, 512), (1, 1, 512, 512))
         if cuda.is_available():
             tester.cuda()
@@ -14,7 +14,7 @@ class ModelTest(unittest.TestCase):
                       fmap_growth=3))
 
     def test_unet_2p5d(self):
-        from neurofire.models.unet import UNet2p5D
+        from neurofire.models import UNet2p5D
         tester = ModelTester((1, 1, 3, 512, 512), (1, 1, 3, 512, 512))
         if cuda.is_available():
             tester.cuda()
@@ -24,7 +24,7 @@ class ModelTest(unittest.TestCase):
                         fmap_growth=3))
 
     def test_unet_3d(self):
-        from neurofire.models.unet import UNet3D
+        from neurofire.models import UNet3D
         tester = ModelTester((1, 1, 32, 256, 256), (1, 1, 32, 256, 256))
         if cuda.is_available():
             tester.cuda()
