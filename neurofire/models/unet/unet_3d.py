@@ -6,8 +6,8 @@ from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsam
 
 class Encoder(Xcoder):
     def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D):
-        assert isinstance(scale_factor, (int, tuple))
-        if isinstance(scale_factor, tuple):
+        assert isinstance(scale_factor, (int, list, tuple))
+        if isinstance(scale_factor, (list, tuple)):
             assert len(scale_factor) == 3
             # we need to make sure that the scale factor conforms with the single value
             # that AnisotropicPool expects
@@ -25,8 +25,8 @@ class Encoder(Xcoder):
 
 class Decoder(Xcoder):
     def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D):
-        assert isinstance(scale_factor, (int, tuple))
-        if isinstance(scale_factor, tuple):
+        assert isinstance(scale_factor, (int, list, tuple))
+        if isinstance(scale_factor, (list, tuple)):
             assert len(scale_factor) == 3
             # we need to make sure that the scale factor conforms with the single value
             # that AnisotropicPool expects
@@ -91,7 +91,8 @@ class UNet3D(UNetSkeleton):
         self.scale_factor = [scale_factor] * 3 if isinstance(scale_factor, int) else scale_factor
         assert len(self.scale_factor) == 3
         # NOTE individual scale factors can have multiple entries for anisotropic sampling
-        assert all(isinstance(sfactor, (int, tuple)) for sfactor in self.scale_factor)
+        assert all(isinstance(sfactor, (int, list, tuple))
+                   for sfactor in self.scale_factor)
 
         # Set attributes
         self.in_channels = in_channels
