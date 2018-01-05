@@ -28,3 +28,6 @@ script:
   #- python -m unittest discover tests/neurofire/metrics
   #- python -m unittest discover tests/neurofire/criteria
   #- python -m unittest discover tests/neurofire/datasets
+branches:
+  only:
+    - travis
