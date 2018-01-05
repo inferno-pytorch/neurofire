@@ -23,11 +23,8 @@ install:
 script:
   - source activate test-environment
   # unittest discover recursion is a bit off, that's why we run each folder by itself
-  - python -m unittest discover tests/neurofire/models 
+  #- python -m unittest discover tests/neurofire/models 
   - python -m unittest discover tests/neurofire/transforms
-  #- python -m unittest discover tests/neurofire/metrics
+  - python -m unittest discover tests/neurofire/metrics
   #- python -m unittest discover tests/neurofire/criteria
   #- python -m unittest discover tests/neurofire/datasets
-branches:
-  only:
-    - travis
