@@ -107,6 +107,13 @@ class MaskTransitionToIgnoreLabel(Transform):
                              .mul_(mask_shifted.data))
         return final_mask_tensor
 
+    # get the full mask tensor
+    def full_mask_tensor(self, segmentation):
+        # get the individual mask for the offsets
+        masks = [self.mask_tensor_for_offset(segmentation, offset) for offset in self.offsets]
+        # Concatenate to one tensor and convert tensor to variable
+        return Variable(torch.cat(tuple(masks), 1), requires_grad=False)
+
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
@@ -117,14 +124,8 @@ class MaskTransitionToIgnoreLabel(Transform):
         # validate target and extract segmentation from the target
         assert target.size(1) == len(self.offsets) + 1, "%i, %i" % (target.size(1), len(self.offsets) + 1)
         segmentation = target[:, 0:1]
+        full_mask_variable = self.full_mask_tensor(segmentation)
 
-        # get the individual mask for the offsets
-        masks = [self.mask_tensor_for_offset(segmentation, offset) for offset in self.offsets]
-
-        # Concatenate to one tensor
-        master_mask = torch.cat(tuple(masks), 1)
-        # Convert tensor to variable
-        master_mask_variable = Variable(master_mask, requires_grad=False)
         # Mask prediction with master mask
-        masked_prediction = prediction * master_mask_variable
+        masked_prediction = prediction * full_mask_variable
         return masked_prediction, target

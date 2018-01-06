@@ -49,6 +49,7 @@ class TestSegmentation(unittest.TestCase):
 
             # check if coord_v is valid
             if any(cv < 0 or cv >= sha for cv, sha in zip(coord_v, shape)):
+                # affinities[aff_coord] = 1.
                 continue
 
             # write the correct affinity (0 -> disconnected, 1 -> connected)
