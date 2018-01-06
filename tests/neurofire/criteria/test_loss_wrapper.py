@@ -6,7 +6,7 @@ from torch.autograd import Variable
 
 from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
 from inferno.io.transform.base import Compose
-from base_test import BaseTest
+from .base_test import BaseTest
 
 
 class TestLossWrapper(BaseTest):

@@ -7,7 +7,7 @@ from torch.autograd import Variable
 # from torch.nn.modules.loss import CrossEntropyLoss
 
 from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
-from base_test import BaseTest
+from .base_test import BaseTest
 
 
 class TestLossTransforms(BaseTest):
