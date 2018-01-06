@@ -11,7 +11,7 @@ from .base_test import BaseTest
 
 class TestLossWrapper(BaseTest):
 
-    def _test_loss_wrapper_affinity_masking(self):
+    def test_loss_wrapper_affinity_masking(self):
         from neurofire.criteria.loss_transforms import MaskTransitionToIgnoreLabel
         from neurofire.criteria.loss_transforms import RemoveSegmentationFromTarget
         from neurofire.criteria.loss_wrapper import LossWrapper

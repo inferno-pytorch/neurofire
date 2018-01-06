@@ -16,7 +16,7 @@ install:
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
   - source activate test-environment
   - conda install -c pytorch pytorch torchvision 
-  - conda install -c conda-forge pyyaml scipy scikit-image h5py dill vigra
+  - conda install -c conda-forge networkx=1.11 pyyaml scipy scikit-image h5py dill vigra
   - conda install -c inferno-pytorch inferno
 
 script:
