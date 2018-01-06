@@ -3,7 +3,7 @@ import torch.cuda as cuda
 from inferno.utils.model_utils import ModelTester
 
 
-class ModelTest(unittest.TestCase):
+class TestUnet(unittest.TestCase):
     def test_unet_2d(self):
         from neurofire.models import UNet2D
         tester = ModelTester((1, 1, 512, 512), (1, 1, 512, 512))

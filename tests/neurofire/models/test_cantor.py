@@ -82,5 +82,4 @@ class TestCantor(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # unittest.main([__file__])
     unittest.main()
