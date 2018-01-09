@@ -404,6 +404,24 @@ class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
             output = binarized_affinities
         return output
 
+
+def shift_tensor(tensor, random_offset):
+    padding = [(0,0)]
+    slicing = [slice(None)]
+    for o in random_offset:
+        padding.append((max(0,-o), max(0, o)))
+        if o == 0:
+            slicing.append(slice(None))
+        elif o > 0:
+            slicing.append(slice(o, None))
+        else:
+            slicing.append(slice(None, o))
+
+    shifted_tensor = np.pad(tensor, padding, "constant")
+    tmp = shifted_tensor[slicing]
+    return np.concatenate((tensor, shifted_tensor[slicing]), 0)
+
+
 class ShiftImageAndSegmentationAffinitiesWithRandomOffsets(Transform):
     """
     This transformation applies a random offset shift to the complete training batch
@@ -430,22 +448,6 @@ class ShiftImageAndSegmentationAffinitiesWithRandomOffsets(Transform):
         else:
             return random_offset
 
-    def shift_tensor(self, tensor, random_offset):
-        padding = [(0,0)]
-        slicing = [slice(None)]
-        for o in random_offset:
-            padding.append((max(0,-o), max(0, o)))
-            if o == 0:
-                slicing.append(slice(None))
-            elif o > 0:
-                slicing.append(slice(o, None))
-            else:
-                slicing.append(slice(None, o))
-
-        shifted_tensor = np.pad(tensor, padding, "constant")
-        tmp = shifted_tensor[slicing]
-        return np.concatenate((tensor, shifted_tensor[slicing]), 0)
-
     def batch_function(self, tensors):
         random_offset = self.get_offset()
         s2a = Segmentation2AffinitiesFromOffsets(self.dim, [random_offset], dtype='float32',
@@ -453,9 +455,7 @@ class ShiftImageAndSegmentationAffinitiesWithRandomOffsets(Transform):
                  use_gpu=self.use_gpu,
                  retain_segmentation=True
             )
-
-        ret = [self.shift_tensor(tensors[0], random_offset), s2a.tensor_function(tensors[1])]
-        return self.shift_tensor(tensors[0], random_offset), s2a.tensor_function(tensors[1])
+        return shift_tensor(tensors[0], random_offset), s2a.tensor_function(tensors[1])
 
 
 class ConnectedComponents2D(Transform):
@@ -514,3 +514,36 @@ class ConnectedComponents3D(Transform):
         else:
             connected_components, _ = label(volume)
         return connected_components
+
+class ManySegmentationsToFuzzyAffinities(Transform):
+    """ Crop patch of size `size` from the center of the image """
+    def __init__(self, dim, offsets, add_singleton_channel_dimension=True,
+                 use_gpu=False, retain_segmentation=False, shift_input=True,
+                 **super_kwargs):
+        super(ManySegmentationsToFuzzyAffinities, self).__init__(**super_kwargs)
+        self.dim = dim
+        self.shift_input = shift_input
+        self.add_singleton_channel_dimension = add_singleton_channel_dimension
+        self.use_gpu = use_gpu
+        self.retain_segmentation = retain_segmentation
+        self.set_new_offset(offsets)
+
+    def batch_function(self, image):
+        # calculate the affinities for all label image channels
+        # and return average
+        assert(len(image[0][1].shape) == self.dim+1)
+        affinities = np.sum([self.s2afo(i) for i in image[0][1]], axis=0)
+        affinities /= len(image[0][1])
+
+        if self.shift_input:
+            assert(len(self.offsets) == 1)
+            return shift_tensor(image[0][0], self.offsets[0]), affinities
+        else:
+            return image[0][0], affinities
+
+    def set_new_offset(self, offsets):
+        self.offsets = offsets
+        self.s2afo = Segmentation2AffinitiesFromOffsets(self.dim, self.offsets, 
+            add_singleton_channel_dimension=self.add_singleton_channel_dimension,
+            use_gpu=self.use_gpu,
+            retain_segmentation=self.retain_segmentation)
