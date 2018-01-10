@@ -531,10 +531,12 @@ class ManySegmentationsToFuzzyAffinities(Transform):
     def batch_function(self, image):
         # calculate the affinities for all label image channels
         # and return average
-        print(image)
         assert(len(image[1].shape) == self.dim+1)
         affinities = np.sum([self.s2afo(i) for i in image[1]], axis=0)
         affinities /= len(image[1])
+
+        if self.retain_segmentation:
+            affinities = np.concatenate((image[1][0:1], affinities), 0)
 
         if self.shift_input:
             assert(len(self.offsets) == 1)
@@ -547,4 +549,4 @@ class ManySegmentationsToFuzzyAffinities(Transform):
         self.s2afo = Segmentation2AffinitiesFromOffsets(self.dim, self.offsets, 
             add_singleton_channel_dimension=self.add_singleton_channel_dimension,
             use_gpu=self.use_gpu,
-            retain_segmentation=self.retain_segmentation)
+            retain_segmentation=False)
