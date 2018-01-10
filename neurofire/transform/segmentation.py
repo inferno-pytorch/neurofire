@@ -518,7 +518,7 @@ class ConnectedComponents3D(Transform):
 class ManySegmentationsToFuzzyAffinities(Transform):
     """ Crop patch of size `size` from the center of the image """
     def __init__(self, dim, offsets, add_singleton_channel_dimension=True,
-                 use_gpu=False, retain_segmentation=False, shift_input=True,
+                 use_gpu=False, retain_segmentation=False, shift_input=False,
                  **super_kwargs):
         super(ManySegmentationsToFuzzyAffinities, self).__init__(**super_kwargs)
         self.dim = dim
@@ -531,15 +531,16 @@ class ManySegmentationsToFuzzyAffinities(Transform):
     def batch_function(self, image):
         # calculate the affinities for all label image channels
         # and return average
-        assert(len(image[0][1].shape) == self.dim+1)
-        affinities = np.sum([self.s2afo(i) for i in image[0][1]], axis=0)
-        affinities /= len(image[0][1])
+        print(image)
+        assert(len(image[1].shape) == self.dim+1)
+        affinities = np.sum([self.s2afo(i) for i in image[1]], axis=0)
+        affinities /= len(image[1])
 
         if self.shift_input:
             assert(len(self.offsets) == 1)
-            return shift_tensor(image[0][0], self.offsets[0]), affinities
+            return shift_tensor(image[0], self.offsets[0]), affinities
         else:
-            return image[0][0], affinities
+            return image[0], affinities
 
     def set_new_offset(self, offsets):
         self.offsets = offsets
