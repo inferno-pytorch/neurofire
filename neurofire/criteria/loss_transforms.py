@@ -2,7 +2,7 @@ import numbers
 
 import torch
 from torch.autograd import Variable
-from torch.nn.functional import conv3d
+from torch.nn.functional import conv2d, conv3d
 
 from inferno.io.transform import Transform
 
@@ -50,6 +50,8 @@ class MaskTransitionToIgnoreLabel(Transform):
     def __init__(self, offsets, ignore_label=0, **super_kwargs):
         super(MaskTransitionToIgnoreLabel, self).__init__(**super_kwargs)
         assert isinstance(offsets, (list, tuple))
+        assert len(offsets) > 0
+        self.dim = len(offsets[0])
         self.offsets = offsets
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
@@ -88,16 +90,25 @@ class MaskTransitionToIgnoreLabel(Transform):
         """
         # expecting target to be segmentation of shape (N, 1, z, y, x)
         assert segmentation.size(1) == 1, str(segmentation.size())
-        dim = 3  # TODO implement for 2d
 
         # Get mask where we don't have ignore label
         dont_ignore_labels_mask_variable = Variable(segmentation.data.clone().ne_(self.ignore_label),
                                                     requires_grad=False, volatile=True)
-        shift_kernels = self.mask_shift_kernels(segmentation.data.new(1, 1, 3, 3, 3).zero_(), dim, offset)
+
+        if self.dim == 2:
+            kernel_alloc = segmentation.data.new(1, 1, 3, 3).zero_()
+            conv = conv2d
+        elif self.dim == 3:
+            kernel_alloc = segmentation.data.new(1, 1, 3, 3, 3).zero_()
+            conv = conv2d
+        else:
+            raise NotImplementedError
+        
+        shift_kernels = self.mask_shift_kernels(kernel_alloc, self.dim, offset)
         shift_kernels = Variable(shift_kernels, requires_grad=False)
         # Convolve
         abs_offset = tuple(max(1, abs(off)) for off in offset)
-        mask_shifted = conv3d(input=dont_ignore_labels_mask_variable,
+        mask_shifted = conv(input=dont_ignore_labels_mask_variable,
                               weight=shift_kernels,
                               padding=abs_offset, dilation=abs_offset)
         # Mask the mask tehe
@@ -118,7 +129,7 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         # validate the prediction
-        assert prediction.dim() == 5, prediction.dim()
+        assert prediction.dim() in [4, 5], prediction.dim()
         assert prediction.size(1) == len(self.offsets), "%i, %i" % (prediction.size(1), len(self.offsets))
 
         # validate target and extract segmentation from the target
