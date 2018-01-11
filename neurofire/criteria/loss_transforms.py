@@ -100,10 +100,10 @@ class MaskTransitionToIgnoreLabel(Transform):
             conv = conv2d
         elif self.dim == 3:
             kernel_alloc = segmentation.data.new(1, 1, 3, 3, 3).zero_()
-            conv = conv2d
+            conv = conv3d
         else:
             raise NotImplementedError
-        
+
         shift_kernels = self.mask_shift_kernels(kernel_alloc, self.dim, offset)
         shift_kernels = Variable(shift_kernels, requires_grad=False)
         # Convolve
