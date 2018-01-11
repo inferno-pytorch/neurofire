@@ -41,7 +41,7 @@ class RemoveSegmentationFromTarget(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        target = target[:, 0:1]
+        target = target[:, 1:]
         return prediction, target
 
 
