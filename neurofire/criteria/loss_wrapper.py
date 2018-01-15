@@ -21,7 +21,7 @@ class BalanceAffinities(object):
         self.ignore_label = ignore_label
 
     def __call__(self, prediction, target):
-        scales = torch.ones_like(prediction)
+        scales = prediction.data.new(*prediction.size()).fill_(1)
         # if we have an ignore label, compute and apply the mask
         if self.ignore_label is not None:
             assert target.size(1) - 1 == prediction.size(1)
@@ -35,8 +35,8 @@ class BalanceAffinities(object):
         # compute the number of labeled samples and the
         # fraction of positive / negative samples
         n_labeled = scales.sum()
-        frac_positive = (scales * target_affinities).sum() / n_labeled
-        frac_positive = np.clip(frac_positive.data[0], 0.05, 0.95)
+        frac_positive = (scales * target_affinities.data).sum() / n_labeled
+        frac_positive = np.clip(frac_positive, 0.05, 0.95)
         frac_negative = 1. - frac_positive
         # compte the corresponding class weights
         # (this is done as in
@@ -80,6 +80,7 @@ class LossWrapper(nn.Module):
         else:
             transformed_prediction, transformed_target = prediction, target
 
+        # print("!!!", transformed_prediction.size(), transformed_target.size())
         loss = self.criterion(transformed_prediction, transformed_target)
         return loss
 
