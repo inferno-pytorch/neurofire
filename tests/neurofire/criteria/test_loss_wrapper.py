@@ -7,7 +7,7 @@ import torch
 
 from torch.autograd import Variable
 from torch.nn.modules.loss import BCELoss
-from inferno.extensions.criteria import WeightedMSELoss
+from inferno.extensions.criteria import WeightedBCELoss
 
 from inferno.io.transform.base import Compose
 
@@ -80,9 +80,7 @@ class TestLossWrapper(BaseTest):
         prediction = Variable(torch.Tensor(*pshape).uniform_(0, 1), requires_grad=True)
 
         # apply cross entropy loss
-        # FIXME BCELoss fails !!!
-        criterion = BCELoss()
-        # criterion = WeightedMSELoss()
+        criterion = WeightedBCELoss()
         wrapper = LossWrapper(criterion, trafos, balance)
         loss = wrapper.forward(prediction, target)
         loss.backward()
