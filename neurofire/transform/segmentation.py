@@ -515,6 +515,7 @@ class ConnectedComponents3D(Transform):
             connected_components, _ = label(volume)
         return connected_components
 
+
 class ManySegmentationsToFuzzyAffinities(Transform):
     """ Crop patch of size `size` from the center of the image """
     def __init__(self, dim, offsets, add_singleton_channel_dimension=True,
@@ -546,7 +547,7 @@ class ManySegmentationsToFuzzyAffinities(Transform):
 
     def set_new_offset(self, offsets):
         self.offsets = offsets
-        self.s2afo = Segmentation2AffinitiesFromOffsets(self.dim, self.offsets, 
+        self.s2afo = Segmentation2AffinitiesFromOffsets(self.dim, self.offsets,
             add_singleton_channel_dimension=self.add_singleton_channel_dimension,
             use_gpu=self.use_gpu,
             retain_segmentation=False)

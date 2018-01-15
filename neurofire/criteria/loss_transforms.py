@@ -140,3 +140,14 @@ class MaskTransitionToIgnoreLabel(Transform):
         # Mask prediction with master mask
         masked_prediction = prediction * full_mask_variable
         return masked_prediction, target
+
+
+class InvertTarget(Transform):
+    def __init__(self, **super_kwargs):
+        super(InvertTarget, self).__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        target = 1. - target
+        return prediction, target
