@@ -313,6 +313,11 @@ class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
         torch_tensor = torch.autograd.Variable(torch.from_numpy(tensor[None, ...]))
         shift_kernel = self.build_shift_kernels(offset)
         torch_kernel = torch.autograd.Variable(torch.from_numpy(shift_kernel))
+
+        # Move tensor to GPU if required
+        if self.use_gpu:
+            torch_tensor = torch_tensor.cuda()
+            torch_kernel = torch_kernel.cuda()
         # Apply convolution (with zero padding). To obtain higher order features,
         # we apply a dilated convolution.
         abs_offset = tuple(max(1, abs(off)) for off in offset)
@@ -322,7 +327,7 @@ class Segmentation2AffinitiesFromOffsets(Transform, DtypeMapping):
                                padding=abs_offset,
                                dilation=abs_offset)
         # Extract numpy array and get rid of the singleton batch dimension
-        convolved = torch_convolved.data.numpy()[0, ...]
+        convolved = torch_convolved.data.cpu().numpy()[0, ...]
         return convolved
 
     def tensor_function(self, tensor):
@@ -551,3 +556,5 @@ class ManySegmentationsToFuzzyAffinities(Transform):
             add_singleton_channel_dimension=self.add_singleton_channel_dimension,
             use_gpu=self.use_gpu,
             retain_segmentation=False)
+
+
