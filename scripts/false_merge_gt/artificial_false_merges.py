@@ -18,6 +18,10 @@ def make_merge(obj_a, obj_b, gt, out_file, raw):
     mask, bb = obj_mask_and_bb(obj_a, gt_merged)
 
     obj_id = "_%i_%i" % (min(obj_a, obj_b), max(obj_a, obj_b))
+    # we overcount so must avoid duplicates
+    group = 'fmobject%s' % obj_id
+    if group in out_file:
+        return
 
     gt_bb = gt[bb]
     gt_bb, _, mapping = vigra.analysis.relabelConsecutive(gt_bb)
