@@ -521,11 +521,12 @@ class ConnectedComponents3D(Transform):
         return connected_components
 
 
+# TODO separate Shift Transformation to it's own class
 class ManySegmentationsToFuzzyAffinities(Transform):
     """ Crop patch of size `size` from the center of the image """
     def __init__(self, dim, offsets, add_singleton_channel_dimension=True,
                  use_gpu=False, retain_segmentation=False, shift_input=False,
-                 **super_kwargs):
+                 multi_scale_factor=None, **super_kwargs):
         super(ManySegmentationsToFuzzyAffinities, self).__init__(**super_kwargs)
         self.dim = dim
         self.shift_input = shift_input
@@ -533,8 +534,10 @@ class ManySegmentationsToFuzzyAffinities(Transform):
         self.use_gpu = use_gpu
         self.retain_segmentation = retain_segmentation
         self.set_new_offset(offsets)
+        self.multi_scale_factor = multi_scale_factor
 
-    def batch_function(self, image):
+
+    def single_scale_batch_function(self, image):
         # calculate the affinities for all label image channels
         # and return average
         assert(len(image[1].shape) == self.dim+1)
@@ -549,6 +552,14 @@ class ManySegmentationsToFuzzyAffinities(Transform):
             return shift_tensor(image[0], self.offsets[0]), affinities
         else:
             return image[0], affinities
+        
+    def batch_function(self, image):
+        if self.multi_scale_factor is None:
+            return self.single_scale_batch_function(image)
+        else:
+            msf = self.multi_scale_factor
+            ms = [1, msf**1, msf**2, msf**3]
+            return image[0], tuple(self.single_scale_batch_function((image[0][:, ::s, ::s], image[1][:, ::s, ::s]))[1] for s in ms)
 
     def set_new_offset(self, offsets):
         self.offsets = offsets
