@@ -10,22 +10,26 @@ from inferno.io.transform import Transform
 # (for affinity trafos on gpu)
 
 
-# TODO expect retain segmentation
 class MaskIgnoreLabel(Transform):
     """
     """
     def __init__(self, ignore_label=0, **super_kwargs):
         super(MaskIgnoreLabel, self).__init__(**super_kwargs)
         assert isinstance(ignore_label, numbers.Integral)
-        self.ignore_label = ignore_label
+        self.ignore_label = float(ignore_label)
+
+    def _make_mask(self, segmentation):
+        mask = Variable(segmentation.data.clone().ne(self.ignore_label).float(),
+                        requires_grad=False)  # .expand_as(prediction)
+        return mask
 
     # for all batch requests, we assume that
     # we are passed prediction and target in `tensors`
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        mask_variable = Variable(target.data.clone().ne(float(self.ignore_label)).float(),
-                                 requires_grad=False).expand_as(prediction)
+        segmentation = target[:, 0:1]
+        mask_variable = self._make_mask(segmentation)
         masked_prediction = prediction * mask_variable
         return masked_prediction, target
 

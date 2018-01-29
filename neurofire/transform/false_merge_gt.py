@@ -34,7 +34,7 @@ class ArtificialFalseMerges(Transform):
         edge_builder = nrag.ragCoordinates(rag, numberOfThreads=self.n_threads)
         # sample 2 adjacent candidate objects
         while True:
-            candidate_obj = np.random.choice(candidate_objects, size=1)[0]
+            candidate_obj = int(np.random.choice(candidate_objects, size=1)[0])
             merge_objects = np.array([adj[0] for adj in rag.nodeAdjacency(candidate_obj)],
                                      dtype='uint32')
             if merge_objects.size == 0:
@@ -45,6 +45,7 @@ class ArtificialFalseMerges(Transform):
                 if self.ignore_label in (candidate_obj, merge_obj):
                     continue
             break
+        # TODO this gets printed (i.e. called) suspiciously often
         print("Merged", candidate_obj, merge_obj)
         # make volume with edge coordinates, false merge and mask
         # of resulting object
@@ -58,7 +59,7 @@ class ArtificialFalseMerges(Transform):
         mask[segmentation == merge_obj] = 1
         return false_merge, mask
 
-    def tensor_function(self, tensors):
+    def batch_function(self, tensors):
         # we expect data and target input
         assert len(tensors) == 2, str(len(tensors))
         inputs, target = tensors

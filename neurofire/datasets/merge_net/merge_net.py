@@ -6,8 +6,8 @@ from inferno.io.transform.image import RandomRotate, ElasticTransform
 from inferno.utils.io_utils import yaml2dict
 from inferno.io.transform.generic import AsTorchBatch
 
-from ....transforms.volume import RejectNonZeroThreshold
-from ....transform.false_merge_gt import ArtificialFalseMerges
+from neurofire.transform.volume import RejectNonZeroThreshold
+from neurofire.transform.false_merge_gt import ArtificialFalseMerges
 from ..cremi.loaders import RawVolume, SegmentationVolume
 
 
@@ -66,7 +66,7 @@ class CREMIMergeDatasets(Concatenate):
                                 master_config=master_config)
                     for name in names]
         # Concatenate
-        super(CREMIMerges, self).__init__(*datasets)
+        super(CREMIMergeDatasets, self).__init__(*datasets)
         self.transforms = self.get_transforms()
 
     def get_transforms(self):
