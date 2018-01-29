@@ -44,7 +44,10 @@ class BalanceAffinities(object):
         # I don't understand exactly why to choose this as weighting)
         w_positive = 1. / (2. * frac_positive)
         w_negative = 1. / (2. * frac_negative)
-        return torch.from_numpy(np.array([w_negative, w_positive]))
+        weights = prediction.data.new(2)
+        weights[0] = w_negative
+        weights[1] = w_positive
+        return weights
 
 
 class LossWrapper(nn.Module):
