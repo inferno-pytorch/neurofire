@@ -1,4 +1,5 @@
 import numpy as np
+import vigra
 from scipy.ndimage.morphology import distance_transform_edt
 from inferno.io.transform import Transform
 import nifty.graph.rag as nrag
@@ -22,15 +23,19 @@ class ArtificialFalseMerges(Transform):
 
     def produce_false_merge(self, target):
         segmentation = target.squeeze()
+        vigra.analysis.relabelConsecutive(segmentation, out=segmentation, keep_zeros=True)
+        print(segmentation.shape)
         assert segmentation.ndim == 3
         # find candidate objects with sufficient size in batch
         objects, counts = np.unique(segmentation, return_counts=True)
         size_threshold = np.percentile(counts, self.size_percentile)
         candidate_objects = objects[counts > size_threshold]
         # build the rag and the edge builder
+        print("Running rag with n-labels:", int(segmentation.max()+1))
         rag = nrag.gridRag(segmentation,
                            numberOfLabels=int(segmentation.max()+1),
                            numberOfThreads=self.n_threads)
+        print("done")
         edge_builder = nrag.ragCoordinates(rag, numberOfThreads=self.n_threads)
         # sample 2 adjacent candidate objects
         while True:
@@ -45,8 +50,6 @@ class ArtificialFalseMerges(Transform):
                 if self.ignore_label in (candidate_obj, merge_obj):
                     continue
             break
-        # TODO this gets printed (i.e. called) suspiciously often
-        print("Merged", candidate_obj, merge_obj)
         # make volume with edge coordinates, false merge and mask
         # of resulting object
         edges = np.zeros(rag.numberOfEdges, dtype='uint32')
