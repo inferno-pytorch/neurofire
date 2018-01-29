@@ -2,7 +2,7 @@ import numbers
 
 import torch
 from torch.autograd import Variable
-from torch.nn.functional import conv3d
+from torch.nn.functional import conv2d, conv3d
 
 from inferno.io.transform import Transform
 
@@ -41,7 +41,7 @@ class RemoveSegmentationFromTarget(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        target = target[:, 0:1]
+        target = target[:, 1:]
         return prediction, target
 
 
@@ -50,6 +50,8 @@ class MaskTransitionToIgnoreLabel(Transform):
     def __init__(self, offsets, ignore_label=0, **super_kwargs):
         super(MaskTransitionToIgnoreLabel, self).__init__(**super_kwargs)
         assert isinstance(offsets, (list, tuple))
+        assert len(offsets) > 0
+        self.dim = len(offsets[0])
         self.offsets = offsets
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
@@ -88,16 +90,25 @@ class MaskTransitionToIgnoreLabel(Transform):
         """
         # expecting target to be segmentation of shape (N, 1, z, y, x)
         assert segmentation.size(1) == 1, str(segmentation.size())
-        dim = 3  # TODO implement for 2d
 
         # Get mask where we don't have ignore label
         dont_ignore_labels_mask_variable = Variable(segmentation.data.clone().ne_(self.ignore_label),
                                                     requires_grad=False, volatile=True)
-        shift_kernels = self.mask_shift_kernels(segmentation.data.new(1, 1, 3, 3, 3).zero_(), dim, offset)
+
+        if self.dim == 2:
+            kernel_alloc = segmentation.data.new(1, 1, 3, 3).zero_()
+            conv = conv2d
+        elif self.dim == 3:
+            kernel_alloc = segmentation.data.new(1, 1, 3, 3, 3).zero_()
+            conv = conv3d
+        else:
+            raise NotImplementedError
+
+        shift_kernels = self.mask_shift_kernels(kernel_alloc, self.dim, offset)
         shift_kernels = Variable(shift_kernels, requires_grad=False)
         # Convolve
         abs_offset = tuple(max(1, abs(off)) for off in offset)
-        mask_shifted = conv3d(input=dont_ignore_labels_mask_variable,
+        mask_shifted = conv(input=dont_ignore_labels_mask_variable,
                               weight=shift_kernels,
                               padding=abs_offset, dilation=abs_offset)
         # Mask the mask tehe
@@ -112,20 +123,31 @@ class MaskTransitionToIgnoreLabel(Transform):
         # get the individual mask for the offsets
         masks = [self.mask_tensor_for_offset(segmentation, offset) for offset in self.offsets]
         # Concatenate to one tensor and convert tensor to variable
-        return Variable(torch.cat(tuple(masks), 1), requires_grad=False)
+        return torch.cat(tuple(masks), 1)
 
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
         # validate the prediction
-        assert prediction.dim() == 5, prediction.dim()
+        assert prediction.dim() in [4, 5], prediction.dim()
         assert prediction.size(1) == len(self.offsets), "%i, %i" % (prediction.size(1), len(self.offsets))
 
         # validate target and extract segmentation from the target
         assert target.size(1) == len(self.offsets) + 1, "%i, %i" % (target.size(1), len(self.offsets) + 1)
         segmentation = target[:, 0:1]
-        full_mask_variable = self.full_mask_tensor(segmentation)
+        full_mask_variable = Variable(self.full_mask_tensor(segmentation), requires_grad=False)
 
         # Mask prediction with master mask
         masked_prediction = prediction * full_mask_variable
         return masked_prediction, target
+
+
+class InvertTarget(Transform):
+    def __init__(self, **super_kwargs):
+        super(InvertTarget, self).__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        target = 1. - target
+        return prediction, target

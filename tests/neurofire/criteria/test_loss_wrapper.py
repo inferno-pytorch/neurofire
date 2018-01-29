@@ -1,12 +1,20 @@
+# FIXME vigra import segfault
+import vigra
+
 import unittest
 import numpy as np
 import torch
-from torch.autograd import Variable
-# from torch.nn.modules.loss import CrossEntropyLoss
 
-from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
+from torch.autograd import Variable
+from torch.nn.modules.loss import BCELoss
+from inferno.extensions.criteria import WeightedBCELoss
+
 from inferno.io.transform.base import Compose
-from .base_test import BaseTest
+
+try:
+    from base_test import BaseTest
+except ImportError:
+    from .base_test import BaseTest
 
 
 class TestLossWrapper(BaseTest):
@@ -37,9 +45,8 @@ class TestLossWrapper(BaseTest):
         prediction = Variable(torch.Tensor(*pshape).uniform_(0, 1), requires_grad=True)
 
         # apply cross entropy loss
-        # FIXME error with Cross Entropy
-        # criterion = CrossEntropyLoss()
-        criterion = SorensenDiceLoss()
+        criterion = BCELoss()
+        # criterion = SorensenDiceLoss()
         wrapper = LossWrapper(criterion, trafos)
         loss = wrapper.forward(prediction, target)
         loss.backward()
@@ -73,9 +80,7 @@ class TestLossWrapper(BaseTest):
         prediction = Variable(torch.Tensor(*pshape).uniform_(0, 1), requires_grad=True)
 
         # apply cross entropy loss
-        # FIXME error with Cross Entropy
-        # criterion = CrossEntropyLoss()
-        criterion = SorensenDiceLoss()
+        criterion = WeightedBCELoss()
         wrapper = LossWrapper(criterion, trafos, balance)
         loss = wrapper.forward(prediction, target)
         loss.backward()
