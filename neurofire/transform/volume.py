@@ -109,3 +109,12 @@ class RandomSlide(Transform):
                                    for plane_num, plane in enumerate(volume)])
         # Done
         return out_volume
+
+
+class RejectNonZeroThreshold(object):
+    def __init__(self, threshold):
+        self.threshold = threshold
+
+    # return True if ration of non-zeros is below the threshold and hence the batch should be rejected
+    def __call__(self, fetched):
+        return (np.count_nonzero(fetched) / fetched.size) < self.threshold
