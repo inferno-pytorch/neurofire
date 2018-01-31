@@ -35,14 +35,24 @@ def test_false_merge_gt():
 
 
 def false_merge_gt_stresstest():
-    path = '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleA/gt/sampleA_neurongt_none.h5'
+    path = '/home/papec/Work/neurodata_hdd/cremi/sampleA/sampleA_neurongt_none.h5'
     with h5py.File(path) as f:
-        labels = f['data'][:]
+        labels = f['data'][:].astype('uint64')
         vigra.analysis.relabelConsecutive(labels, out=labels)
-    raw_path = '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleA/raw/sampleA_raw_none.h5'
-    with h5py.File(path) as f:
+    raw_path = '/home/papec/Work/neurodata_hdd/cremi/sampleA/sampleA_raw_none.h5'
+    with h5py.File(raw_path) as f:
         raw = f['data'][:]
     assert raw.shape == labels.shape
+
+    # path = '/home/papec/Work/neurodata_hdd/cremi/sample_A_20160501.hdf'
+    # with h5py.File(path) as f:
+    #     labels = f['volumes/labels/neuron_ids'][:]
+    #     vigra.analysis.relabelConsecutive(labels, out=labels)
+    #     raw = f['volumes/raw'][:]
+
+    print("Dtype:")
+    print(labels.dtype)
+    print("Dtype:")
 
     trafo = ArtificialFalseMerges(target_distances=(5., 15., 25.))
     shape = labels.shape
