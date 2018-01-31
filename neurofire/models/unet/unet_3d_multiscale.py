@@ -1,11 +1,12 @@
 import torch.nn as nn
-from .base import UNetSkeletonMultiscale, Xcoder
+from .base import UNetSkeletonMultiscale, XcoderResidual
 from inferno.extensions.layers.convolutional import ConvELU3D, Conv3D, BNReLUConv3D
 from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsample
 
 
-class Encoder(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D):
+class Encoder(XcoderResidual):
+    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D,
+                 add_residual_connections=False):
         assert isinstance(scale_factor, (int, list, tuple))
         if isinstance(scale_factor, (list, tuple)):
             assert len(scale_factor) == 3
@@ -19,12 +20,14 @@ class Encoder(Xcoder):
                                    stride=scale_factor,
                                    padding=1)
         super(Encoder, self).__init__(in_channels, out_channels, kernel_size,
+                                      add_residual_connections=add_residual_connections,
                                       conv_type=conv_type,
                                       pre_output=sampler)
 
 
-class Decoder(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D):
+class Decoder(XcoderResidual):
+    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D,
+                 add_residual_connections=False):
         assert isinstance(scale_factor, (int, list, tuple))
         if isinstance(scale_factor, (list, tuple)):
             assert len(scale_factor) == 3
@@ -36,13 +39,16 @@ class Decoder(Xcoder):
         else:
             sampler = nn.Upsample(scale_factor=scale_factor)
         super(Decoder, self).__init__(in_channels, out_channels, kernel_size,
+                                      add_residual_connections=add_residual_connections,
                                       conv_type=conv_type,
                                       pre_output=sampler)
 
 
-class Base(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU3D):
+class Base(XcoderResidual):
+    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU3D,
+                 add_residual_connections=False):
         super(Base, self).__init__(in_channels, out_channels, kernel_size,
+                                   add_residual_connections=add_residual_connections,
                                    conv_type=conv_type,
                                    pre_output=None)
 
@@ -68,6 +74,7 @@ class UNet3DMultiscale(UNetSkeletonMultiscale):
                  scale_factor=2,
                  final_activation='auto',
                  conv_type_key='vanilla',
+                 add_residual_connections=False,
                  return_inner_feature_layers=False):
         """
         Parameter:
@@ -81,6 +88,7 @@ class UNet3DMultiscale(UNetSkeletonMultiscale):
         scale_factor (int or list / tuple): upscale / downscale factor (default: 2)
         final_activation:  final activation used (default: 'auto')
         conv_type_key: convolutin type
+        add_residual_connections: add skip connections in each encoder/decoder
         """
 
         # validate conv-type
@@ -106,24 +114,30 @@ class UNet3DMultiscale(UNetSkeletonMultiscale):
         f1e = initial_num_fmaps * fmap_growth
         f2e = initial_num_fmaps * fmap_growth**2
         encoders = [
-            Encoder(in_channels, f0e, 3, self.scale_factor[0], conv_type=conv_type),
-            Encoder(f0e, f1e, 3, self.scale_factor[1], conv_type=conv_type),
-            Encoder(f1e, f2e, 3, self.scale_factor[2], conv_type=conv_type)
+            Encoder(in_channels, f0e, 3, self.scale_factor[0], conv_type=conv_type,
+                    add_residual_connections=add_residual_connections),
+            Encoder(f0e, f1e, 3, self.scale_factor[1], conv_type=conv_type,
+                    add_residual_connections=add_residual_connections),
+            Encoder(f1e, f2e, 3, self.scale_factor[2], conv_type=conv_type,
+                    add_residual_connections=add_residual_connections)
         ]
 
         # Build base
         # number of base output feature maps
         f0b = initial_num_fmaps * fmap_growth**3
-        base = Base(f2e, f0b, 3, conv_type=conv_type)
+        base = Base(f2e, f0b, 3, conv_type=conv_type, add_residual_connections=add_residual_connections)
 
         # Build decoders (same number of feature maps as MALA)
         f2d = initial_num_fmaps * fmap_growth**2
         f1d = initial_num_fmaps * fmap_growth
         f0d = initial_num_fmaps
         decoders = [
-            Decoder(f0b + f2e + out_channels, f2d, 3, self.scale_factor[2], conv_type=conv_type),
-            Decoder(f2d + f1e + out_channels, f1d, 3, self.scale_factor[1], conv_type=conv_type),
-            Decoder(f1d + f0e + out_channels, f0d, 3, self.scale_factor[0], conv_type=conv_type)
+            Decoder(f0b + f2e + out_channels, f2d, 3, self.scale_factor[2], conv_type=conv_type,
+                    add_residual_connections=add_residual_connections),
+            Decoder(f2d + f1e + out_channels, f1d, 3, self.scale_factor[1], conv_type=conv_type,
+                    add_residual_connections=add_residual_connections),
+            Decoder(f1d + f0e + out_channels, f0d, 3, self.scale_factor[0], conv_type=conv_type,
+                    add_residual_connections=add_residual_connections)
         ]
 
         # Build decoders

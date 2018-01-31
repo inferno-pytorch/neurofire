@@ -10,6 +10,8 @@ class Xcoder(nn.Module):
         # the in-channels we get from the top-level / bottom level layer + skip connections
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.conv_type = conv_type
         # TODO how do the filter sizes evolve here?
         # conv1: in -> out, conv2: out -> out
         # conv1: in -> in, conv2: in -> out (???)
@@ -31,6 +33,52 @@ class Xcoder(nn.Module):
         else:
             out = conv2_out
         return out
+
+class XcoderResidual(Xcoder):
+    """
+    Inspired by arXiv:1706.00120
+
+    By default, it calls Xcoder (no skip connections)
+    """
+
+    def __init__(self, *super_args, add_residual_connections=False, **super_kwargs):
+        super(XcoderResidual, self).__init__(*super_args, **super_kwargs)
+
+        assert isinstance(add_residual_connections, bool)
+        self.add_residual_connections = add_residual_connections
+
+        if add_residual_connections:
+            # Add initial 2D convolution:
+            if isinstance(self.kernel_size, int):
+                kernel_size_2d = (1, self.kernel_size, self.kernel_size)
+            else:
+                assert isinstance(self.kernel_size, tuple)
+                assert len(self.kernel_size) == 3
+                kernel_size_2d = (1, self.kernel_size[1], self.kernel_size[2])
+            self.conv0 = self.conv_type(in_channels=self.in_channels,
+                                        out_channels=self.out_channels,
+                                        kernel_size=kernel_size_2d)
+
+            # Replace conv1 with correct number of in_channels:
+            self.conv1 = self.conv_type(in_channels=self.out_channels,
+                                   out_channels=self.out_channels,
+                                   kernel_size=self.kernel_size)
+
+    def forward(self, input_):
+        if not self.add_residual_connections:
+            return super(XcoderResidual, self).forward(input_)
+        else:
+            conv0_out = self.conv0(input_)
+            conv1_out = self.conv1(conv0_out)
+            conv2_out = self.conv2(conv1_out)
+
+            # Add skip connection:
+            out = conv0_out + conv2_out
+
+            if self.pre_output is not None:
+                out = self.pre_output(out)
+
+            return out
 
 
 class UNetSkeleton(nn.Module):
