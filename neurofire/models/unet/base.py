@@ -109,10 +109,14 @@ class UNetSkeleton(nn.Module):
 
 
 class UNetSkeletonMultiscale(nn.Module):
-    def __init__(self, encoders, base, decoders, predictors, final_activation=None):
+    def __init__(self, encoders, base, decoders, predictors, final_activation=None,
+                 return_inner_feature_layers=False):
         super(UNetSkeletonMultiscale, self).__init__()
         assert isinstance(encoders, list)
         assert isinstance(decoders, list)
+
+        assert isinstance(return_inner_feature_layers, bool)
+        self._return_inner_feature_layers = return_inner_feature_layers
 
         # why do we hard-code this to 3 ? wouldn't it be enough to check that they are
         # all of the same length
@@ -188,7 +192,10 @@ class UNetSkeletonMultiscale(nn.Module):
         p0 = self.predictors[0](d0)
         out0 = self.apply_act(p0)
 
-        return out0, out1, out2, out3
+        if not self._return_inner_feature_layers:
+            return out0, out1, out2, out3
+        else:
+            return [out0, out1, out2, out3], [e0, e1, e2, b, d2, d1, d0]
 
 
 
