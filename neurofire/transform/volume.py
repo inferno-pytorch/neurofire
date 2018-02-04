@@ -76,36 +76,39 @@ class RandomSlide(Transform):
         # Crop and return
         return image[slices]
 
-    def volume_function(self, volume):
-        # TODO Validate volume shape
+    def batch_function(self, volumes):
+        assert isinstance(volumes, (tuple, list))
+        shape = volumes[0].shape
+        if len(volumes) > 1:
+            assert all(vv.shape == shape for vv in volumes[1:])
         # Build random variables
-        self.build_random_variables(num_planes=volume.shape[0],
-                                    input_image_size=volume.shape[1:])
+        self.build_random_variables(num_planes=shape[0],
+                                    input_image_size=shape[1:])
 
         # determine if we apply the transformation to the slide at all
         # TODO would be cleaner to integrate into `build random variables` as well
-        r = np.random.rand()
-        if r > self.apply_proba:
-            out_volume = np.array([self.shift_and_crop(image=plane, zero_shift=True)
-                                  for plane in volume])
-            return out_volume
+        apply_shift = np.random.rand() < self.apply_proba
 
-        # Get random variables
-        shift_or_slide = self.get_random_variable('shift_or_slide')
-        # Shift or slide?
-        if shift_or_slide == 'shift':
-            # Shift
-            shift_at = self.get_random_variable('shift_at')
-            # Don't shift if plane_num doesn't equal shift_at
-            out_volume = np.array([self.shift_and_crop(image=plane,
-                                                       zero_shift=(plane_num != shift_at))
-                                   for plane_num, plane in enumerate(volume)])
+        if apply_shift:
+            # Get random variables
+            shift_or_slide = self.get_random_variable('shift_or_slide')
+            # Shift or slide?
+            if shift_or_slide == 'shift':
+                # Shift
+                shift_at = self.get_random_variable('shift_at')
+                # Don't shift if plane_num doesn't equal shift_at
+                out_volumes = tuple(np.array([self.shift_and_crop(image=plane,
+                                                                  zero_shift=(plane_num != shift_at))
+                                             for plane_num, plane in enumerate(volume)]) for volume in volumes)
+            else:
+                # Slide
+                slide_from = self.get_random_variable('slide_from')
+                # Don't shift if plane_num isn't larger than or equal to slide_from
+                out_volumes = tuple(np.array([self.shift_and_crop(image=plane,
+                                                                  zero_shift=(plane_num < slide_from))
+                                             for plane_num, plane in enumerate(volume)]) for volume in volumes)
+
         else:
-            # Slide
-            slide_from = self.get_random_variable('slide_from')
-            # Don't shift if plane_num isn't larger than or equal to slide_from
-            out_volume = np.array([self.shift_and_crop(image=plane,
-                                                       zero_shift=(plane_num < slide_from))
-                                   for plane_num, plane in enumerate(volume)])
-        # Done
-        return out_volume
+            out_volumes = tuple(np.array([self.shift_and_crop(image=plane, zero_shift=True)
+                                         for plane in volume]) for volume in volumes)
+        return out_volumes

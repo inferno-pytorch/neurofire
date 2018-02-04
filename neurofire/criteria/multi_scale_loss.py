@@ -45,7 +45,7 @@ class MultiScaleLoss(nn.Module):
 # TODO
 # - this should go somewhere else (inferno.extensions)
 # - should check if some existing torch functionality can be used
-class Downsampler(object):
+class Downsampler3D(object):
     def __init__(self, scale_factor):
         assert isinstance(scale_factor, (list, int, tuple))
         if isinstance(scale_factor, (list, tuple)):
@@ -92,8 +92,9 @@ class MultiScaleLossMaxPool(MultiScaleLoss):
 
         # if retain segmentation is activated,
         # we need to add transformations for the segmentations as well
+        # TODO generalize this to 2 and 3D
         if self.retain_segmentation:
-            self.samplers = [Downsampler(sf) for sf in self.scaling_factor]
+            self.samplers = [Downsampler3D(sf) for sf in self.scaling_factor]
 
     def forward(self, predictions, target):
         assert isinstance(predictions, (list, tuple))
