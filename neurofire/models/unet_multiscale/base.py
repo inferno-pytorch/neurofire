@@ -87,6 +87,6 @@ class UNetSkeletonMultiscale(nn.Module):
         out0 = self.apply_act(p0)
 
         if self._return_inner_feature_layers:
-            return [out0, out1, out2, out3], [e0, e1, e2, b, d2, d1, d0]
+            return (out0, out1, out2, out3), (e0, e1, e2, b, d2, d1, d0)
         else:
             return out0, out1, out2, out3
