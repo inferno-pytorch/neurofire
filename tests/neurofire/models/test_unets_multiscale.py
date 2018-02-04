@@ -61,6 +61,14 @@ class TestUnetMultiscale(unittest.TestCase):
                                 fmap_growth=3,
                                 scale_factor=2))
 
+        # test with residual block
+        tester(UNet3DMultiscale(1, 1,
+                                initial_num_fmaps=12,
+                                fmap_growth=3,
+                                scale_factor=2,
+                                add_residual_connections=True))
+
+        # test unet 3d with anisotropic sampling
         output_shape = ((1, 1, 32, 256, 256),
                         (1, 1, 32, 128, 128),
                         (1, 1, 32, 64, 64),
@@ -70,7 +78,6 @@ class TestUnetMultiscale(unittest.TestCase):
         if cuda.is_available():
             tester.cuda()
 
-        # test unet 3d with anisotropic sampling
         tester(UNet3DMultiscale(1, 1,
                                 initial_num_fmaps=12,
                                 fmap_growth=3,

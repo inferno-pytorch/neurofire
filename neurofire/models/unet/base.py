@@ -37,44 +37,41 @@ class XcoderResidual(Xcoder):
     """
     Inspired by arXiv:1706.00120
 
-    By default, it calls Xcoder (no skip connections)
     """
 
-    def __init__(self, *super_args, add_residual_connections=False, **super_kwargs):
+    def __init__(self, *super_args, **super_kwargs):
         super(XcoderResidual, self).__init__(*super_args, **super_kwargs)
 
-        assert isinstance(add_residual_connections, bool)
-        self.add_residual_connections = add_residual_connections
+        # Add initial 2D convolution:
+        if isinstance(self.kernel_size, int):
+            self.kernel_size_2d = (1, self.kernel_size, self.kernel_size)
+        else:
+            assert isinstance(self.kernel_size, tuple)
+            assert len(self.kernel_size) == 3
+            self.kernel_size_2d = (1, self.kernel_size[1], self.kernel_size[2])
 
-        if self.add_residual_connections:
-            # Add initial 2D convolution:
-            if isinstance(self.kernel_size, int):
-                kernel_size_2d = (1, self.kernel_size, self.kernel_size)
-            else:
-                assert isinstance(self.kernel_size, tuple)
-                assert len(self.kernel_size) == 3
-                kernel_size_2d = (1, self.kernel_size[1], self.kernel_size[2])
+        # change block 1 to 2d conv
+        self.conv1 = self.conv_type(in_channels=self.in_channels,
+                                    out_channels=self.out_channels,
+                                    kernel_size=self.kernel_size_2d)
 
-            # add an additional conv layer
-            self.conv3 = self.conv_type(in_channels=self.out_channels,
-                                        out_channels=self.out_channels,
-                                        kernel_size=self.kernel_size)
+        # add an additional conv layer
+        self.conv3 = self.conv_type(in_channels=self.out_channels,
+                                    out_channels=self.out_channels,
+                                    kernel_size=self.kernel_size)
 
     def forward(self, input_):
-        if not self.add_residual_connections:
-            return super(XcoderResidual, self).forward(input_)
-        else:
-            conv1_out = self.conv1(input_)
-            conv2_out = self.conv2(conv1_out)
-            conv3_out = self.conv3(conv2_out)
+        conv1_out = self.conv1(input_)
+        conv2_out = self.conv2(conv1_out)
+        conv3_out = self.conv3(conv2_out)
 
-            # Add skip connection:
-            out = conv1_out + conv3_out
+        # Add skip connection:
+        out = conv1_out + conv3_out
 
-            if self.pre_output is not None:
-                out = self.pre_output(out)
+        if self.pre_output is not None:
+            out = self.pre_output(out)
 
-            return out
+        return out
 
 
 class UNetSkeleton(nn.Module):
