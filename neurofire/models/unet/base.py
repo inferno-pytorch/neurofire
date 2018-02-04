@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class Xcoder(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, conv_type, pre_output):
         super(Xcoder, self).__init__()
@@ -57,7 +58,6 @@ class UNetSkeleton(nn.Module):
         else:
             raise NotImplementedError
 
-
     def forward(self, input_):
 
         # all spatial sizes (ssize) for 512 input size
@@ -105,7 +105,6 @@ class UNetSkeleton(nn.Module):
         if self.final_activation is not None:
             out = self.final_activation(out)
         return out
-
 
 
 class UNetSkeletonMultiscale(nn.Module):
@@ -189,6 +188,3 @@ class UNetSkeletonMultiscale(nn.Module):
         out0 = self.apply_act(p0)
 
         return out0, out1, out2, out3
-
-
-
