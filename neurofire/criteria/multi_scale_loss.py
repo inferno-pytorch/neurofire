@@ -14,7 +14,7 @@ class MultiScaleLoss(nn.Module):
         self.n_scales = n_scales
         # per default, we weight each scale's loss with 1 / 4**scale_level i. (1, 1/4, 1/16, 1/128, ...)
         if scale_weights is None:
-            self.scale_weights = [2**scale for scale in range(n_scales)]
+            self.scale_weights = [4**scale for scale in range(n_scales)]
         else:
             assert isinstance(scale_weights, (list, tuple))
             assert len(scale_weights) == n_scales
