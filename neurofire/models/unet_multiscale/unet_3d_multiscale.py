@@ -1,6 +1,8 @@
 import torch.nn as nn
-from .base import UNetSkeletonMultiscale, XcoderResidual
-from inferno.extensions.layers.convolutional import ConvELU3D, Conv3D, BNReLUConv3D
+from ..unet.base import XcoderResidual
+from ..unet.unet_3d import Output, CONV_TYPES
+from .base import UNetSkeletonMultiscale
+from inferno.extensions.layers.convolutional import ConvELU3D
 from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsample
 
 
@@ -51,15 +53,6 @@ class Base(XcoderResidual):
                                    add_residual_connections=add_residual_connections,
                                    conv_type=conv_type,
                                    pre_output=None)
-
-
-class Output(Conv3D):
-    def __init__(self, in_channels, out_channels, kernel_size):
-        super(Output, self).__init__(in_channels, out_channels, kernel_size)
-
-
-CONV_TYPES = {'vanilla': ConvELU3D,
-              'conv_bn': BNReLUConv3D}
 
 
 class UNet3DMultiscale(UNetSkeletonMultiscale):
@@ -153,8 +146,8 @@ class UNet3DMultiscale(UNetSkeletonMultiscale):
 
         # Build the architecture
         super(UNet3DMultiscale, self).__init__(encoders=encoders,
-                                     base=base,
-                                     decoders=decoders,
-                                     predictors=predictors,
-                                     final_activation=final_activation,
-                                     return_inner_feature_layers=return_inner_feature_layers)
+                                               base=base,
+                                               decoders=decoders,
+                                               predictors=predictors,
+                                               final_activation=final_activation,
+                                               return_inner_feature_layers=return_inner_feature_layers)

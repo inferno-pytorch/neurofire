@@ -1,37 +1,6 @@
 import torch.nn as nn
-from inferno.extensions.layers.convolutional import ConvELU2D, Conv2D, BNReLUConv2D
-from .base import UNetSkeletonMultiscale, Xcoder
-
-CONV_TYPES = {'vanilla': ConvELU2D,
-              'conv_bn': BNReLUConv2D}
-
-
-class Encoder(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D, scale_factor=2):
-        super(Encoder, self).__init__(in_channels, out_channels, kernel_size,
-                                      conv_type=conv_type,
-                                      pre_output=nn.MaxPool2d(kernel_size=1 + scale_factor,
-                                                              stride=scale_factor,
-                                                              padding=1))
-
-
-class Decoder(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D, scale_factor=2):
-        super(Decoder, self).__init__(in_channels, out_channels, kernel_size,
-                                      conv_type=conv_type,
-                                      pre_output=nn.Upsample(scale_factor=scale_factor))
-
-
-class Base(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D):
-        super(Base, self).__init__(in_channels, out_channels, kernel_size,
-                                   conv_type=conv_type,
-                                   pre_output=None)
-
-
-class Output(Conv2D):
-    def __init__(self, in_channels, out_channels, kernel_size):
-        super(Output, self).__init__(in_channels, out_channels, kernel_size)
+from .base import UNetSkeletonMultiscale
+from ..unet.unet_2d import Encoder, Decoder, Base, Output, CONV_TYPES
 
 
 class UNet2DMultiscale(UNetSkeletonMultiscale):
@@ -96,7 +65,6 @@ class UNet2DMultiscale(UNetSkeletonMultiscale):
             Decoder(f1d + f0e + out_channels, f0d, 3, conv_type=conv_type, scale_factor=self.scale_factor[0])
         ]
 
-
         # Build decoders
         output_0 = Output(f0d, out_channels, 3)
         output_1 = Output(f1d, out_channels, 3)
@@ -110,10 +78,10 @@ class UNet2DMultiscale(UNetSkeletonMultiscale):
 
         # Build the architecture
         super(UNet2DMultiscale, self).__init__(encoders=encoders,
-                                     base=base,
-                                     decoders=decoders,
-                                     predictors=predictors,
-                                     final_activation=final_activation)
+                                               base=base,
+                                               decoders=decoders,
+                                               predictors=predictors,
+                                               final_activation=final_activation)
 
     def forward(self, input_):
         # some loaders are usually 3D, so we reshape if necessary
