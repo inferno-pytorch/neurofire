@@ -67,9 +67,9 @@ class MultiScaleLossMaxPool(MultiScaleLoss):
         super(MultiScaleLossMaxPool, self).__init__(loss, n_scales, scale_weights)
         assert isinstance(scaling_factor, (list, tuple, int))
         if isinstance(scaling_factor, int):
-            self.scaling_factor = self.n_scales * [scaling_factor]
+            self.scaling_factor = (self.n_scales - 1) * [scaling_factor]
         else:
-            assert len(scaling_factor) == self.n_scales
+            assert len(scaling_factor) == self.n_scales - 1
             self.scaling_factor = scaling_factor
 
         self.poolers = []
@@ -106,18 +106,18 @@ class MultiScaleLossMaxPool(MultiScaleLoss):
             else:
                 target = 1. - target
 
-        targets = []
+        targets = [target]
         # if retain_segmentation is true, we need to pool
         # differently for channel 0 (= segmentation) and the affinty channels
         if self.retain_segmentation:
-            for scale in range(self.n_scales):
-                segmentation = self.samplers[scale](target[:, :1]).clone()
+            for scale in range(self.n_scales - 1):
+                segmentation = self.samplers[scale](target[:, :1])
                 target = self.poolers[scale](target)
                 target[:, 0] = segmentation
-                targets.append(target.clone())
+                targets.append(target)
         else:
-            for scale in range(self.n_scales):
+            for scale in range(self.n_scales - 1):
                 target = self.poolers[scale](target)
-                targets.append(target.clone())
+                targets.append(target)
 
         return super(MultiScaleLossMaxPool, self).forward(predictions, targets)

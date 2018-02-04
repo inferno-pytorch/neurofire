@@ -80,7 +80,7 @@ class RandomSlide(Transform):
         assert isinstance(volumes, (tuple, list))
         shape = volumes[0].shape
         if len(volumes) > 1:
-            assert all(vv.shape == shape for vv in volumes[1:])
+            assert all(vv.shape == shape for vv in volumes[1:]), "%s" % ", ".join(str(vv.shape) for vv in volumes)
         # Build random variables
         self.build_random_variables(num_planes=shape[0],
                                     input_image_size=shape[1:])
