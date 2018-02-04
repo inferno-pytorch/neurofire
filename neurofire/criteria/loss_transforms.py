@@ -109,8 +109,8 @@ class MaskTransitionToIgnoreLabel(Transform):
         # Convolve
         abs_offset = tuple(max(1, abs(off)) for off in offset)
         mask_shifted = conv(input=dont_ignore_labels_mask_variable,
-                              weight=shift_kernels,
-                              padding=abs_offset, dilation=abs_offset)
+                            weight=shift_kernels,
+                            padding=abs_offset, dilation=abs_offset)
         # Mask the mask tehe
         final_mask_tensor = (dont_ignore_labels_mask_variable
                              .expand_as(mask_shifted)
