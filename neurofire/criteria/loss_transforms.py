@@ -47,7 +47,13 @@ class RemoveSegmentationFromTarget(Transform):
 
 class MaskTransitionToIgnoreLabel(Transform):
     """Applies a mask where the transition to zero label is masked for the respective offsets."""
-    def __init__(self, offsets, ignore_label=0, **super_kwargs):
+    def __init__(self, offsets, ignore_label=0,
+                 mode='apply_mask_to_batch',
+                 **super_kwargs):
+        """
+        Added additional parameter.
+        :param mode: the default is 'apply_mask_to_batch'. An additional mode is 'return_mask'.
+        """
         super(MaskTransitionToIgnoreLabel, self).__init__(**super_kwargs)
         assert isinstance(offsets, (list, tuple))
         assert len(offsets) > 0
@@ -55,6 +61,9 @@ class MaskTransitionToIgnoreLabel(Transform):
         self.offsets = offsets
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
+
+        assert mode == 'apply_mask_to_batch' or mode == 'return_mask', "Mode not recognized"
+        self.mode = mode
 
     # TODO explain what the hell is going on here ...
     @staticmethod
@@ -137,9 +146,16 @@ class MaskTransitionToIgnoreLabel(Transform):
         segmentation = target[:, 0:1]
         full_mask_variable = Variable(self.full_mask_tensor(segmentation), requires_grad=False)
 
-        # Mask prediction with master mask
-        masked_prediction = prediction * full_mask_variable
-        return masked_prediction, target
+        if self.mode == 'apply_mask_to_batch':
+            # FIXME: should we not apply the mask also to the targets...?
+            # Mask prediction with master mask
+            masked_prediction = prediction * full_mask_variable
+            targ_affinities = target[:, 1:]
+            targ_affinities = targ_affinities * full_mask_variable
+            target = torch.cat((segmentation, targ_affinities), dim=1)
+            return masked_prediction, target
+        elif self.mode == 'return_mask':
+            return full_mask_variable
 
 
 class InvertTarget(Transform):
