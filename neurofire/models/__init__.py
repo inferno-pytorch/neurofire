@@ -5,7 +5,7 @@ from .unet.unet_2p5d import UNet2p5D
 from .unet.unet_3d import UNet3D
 from .fcn.fcn import FCN
 from .hed.hed import HED
-from .hed.hed import FusionHED
+from .hed.fusionhed import FusionHED
 
 
 

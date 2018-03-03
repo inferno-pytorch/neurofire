@@ -5,18 +5,18 @@ import math
 import torch
 import torch.nn.functional as F
 
-def crop(d, g):
-    g_h, g_w = g.size()[2:4]
-    d_h, d_w = d.size()[2:4]
-    d1 = d[:, :, int(math.floor((d_h - g_h)/2.0)):int(math.floor((d_h - g_h)/2.0)) + g_h, int(math.floor((d_w - g_w)/2.0)):int(math.floor((d_w - g_w)/2.0)) + g_w]
-    return d1
+# def crop(d, g):
+#     g_h, g_w = g.size()[2:4]
+#     d_h, d_w = d.size()[2:4]
+#     d1 = d[:, :, int(math.floor((d_h - g_h)/2.0)):int(math.floor((d_h - g_h)/2.0)) + g_h, int(math.floor((d_w - g_w)/2.0)):int(math.floor((d_w - g_w)/2.0)) + g_w]
+#     return d1
 
 class HED(nn.Module):
-    def __init__(self, out_channels=1, dilation=1):
+    def __init__(self, in_channels=3, out_channels=1, dilation=1):
         super(HED, self).__init__()
         self.conv1 = nn.Sequential(
             # conv1
-            nn.Conv2d(3, 64, 3, padding=35),
+            nn.Conv2d(in_channels, 64, 3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 64, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -90,7 +90,7 @@ class HED(nn.Module):
             )
             self.upscore5 = nn.UpsamplingBilinear2d(scale_factor=16)  
 
-    def forward(self, x, gt):
+    def forward(self, x):
         conv1 = self.conv1(x)
         conv2 = self.conv2(conv1)
         conv3 = self.conv3(conv2)
@@ -98,20 +98,20 @@ class HED(nn.Module):
         conv5 = self.conv5(conv4)
 
         ## side output
-        dsn5_up = self.upscore5(self.dsn5(conv5))
-        d5 = crop(dsn5_up, gt)
+        d5 = self.upscore5(self.dsn5(conv5))
+        # d5 = crop(dsn5_up, gt)
         
-        dsn4_up = self.upscore4(self.dsn4(conv4))
-        d4 = crop(dsn4_up, gt)
+        d4 = self.upscore4(self.dsn4(conv4))
+        # d4 = crop(dsn4_up, gt)
         
-        dsn3_up = self.upscore3(self.dsn3(conv3))
-        d3 = crop(dsn3_up, gt)
+        d3 = self.upscore3(self.dsn3(conv3))
+        # d3 = crop(dsn3_up, gt)
         
-        dsn2_up = self.upscore2(self.dsn2(conv2))
-        d2 = crop(dsn2_up, gt)
+        d2 = self.upscore2(self.dsn2(conv2))
+        # d2 = crop(dsn2_up, gt)
         
-        dsn1 = self.dsn1(conv1)
-        d1 = crop(dsn1, gt)
+        d1 = self.dsn1(conv1)
+        # d1 = crop(dsn1, gt)
 
         # dsn fusion output
         d6 = self.dsn6(torch.cat((d1, d2, d3, d4, d5), 1))
