@@ -8,6 +8,9 @@ from .unet_multiscale.unet_2d_multiscale import UNet2DMultiscale
 from .unet_multiscale.unet_3d_multiscale import UNet3DMultiscale
 
 from .fcn.fcn import FCN
+from .hed.hed import HED
+from .hed.fusionhed import FusionHED
+
 
 
 def get_model(name):
