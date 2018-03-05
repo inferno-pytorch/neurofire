@@ -41,8 +41,7 @@ class RemoveSegmentationFromTarget(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        target = target[:, 1:]
-        return prediction, target
+        return prediction, target[:, 1:]
 
 
 class MaskTransitionToIgnoreLabel(Transform):
@@ -149,5 +148,4 @@ class InvertTarget(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        target = 1. - target
-        return prediction, target
+        return prediction, 1. - target
