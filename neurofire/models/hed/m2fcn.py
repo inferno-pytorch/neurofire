@@ -4,6 +4,7 @@ import torch.nn as nn
 from .hed import HED
 
 
+# TODO reference to paper
 class M2FCN(nn.Module):
     def __init__(self, in_channels=1,
                  out_channels=1, dilation=1,
