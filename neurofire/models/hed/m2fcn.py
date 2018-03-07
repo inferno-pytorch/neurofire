@@ -17,8 +17,13 @@ class M2FCN(nn.Module):
 
         assert isinstance(parameter, (list, tuple))
         assert len(parameter) > 1
+
         super(M2FCN, self).__init__()
+
+        # need to have out channels as member for inference engine
+        self.out_channels = out_channels
         self.fuse_sub_networks = fuse_sub_networks
+
         self.heds = nn.ModuleList([])
         for i, param in enumerate(parameter):
             expected_in_channels = in_channels if i == 0 else out_channels
@@ -55,6 +60,6 @@ class M2FCN(nn.Module):
 
         out = tuple(chain(*out))
         if self.fuse_sub_networks:
-            fused = self.fuse(torch.cat(out, dim=1))
+            fused = F.sigmoid(self.fuse(torch.cat(out, dim=1)))
             out = (fused,) + out
         return out

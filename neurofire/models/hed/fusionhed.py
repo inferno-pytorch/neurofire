@@ -25,6 +25,7 @@ class FusionHED(nn.Module):
 
         # need to have out channels as member for inference engine
         self.out_channels = out_channels
+
         if use_vamilla_hed:
             self.hed0 = HED(in_channels=in_channels, out_channels=out_channels,
                             initial_num_fmaps=parameter[0],

@@ -94,6 +94,10 @@ class HED(nn.Module):
             self.sampling_type_key = 4 * (sampling_type_key,)
 
         super(HED, self).__init__()
+
+        # need to have out channels as member for inference engine
+        self.out_channels = out_channels
+
         # calculate number of features for all levels
         f0 = initial_num_fmaps
         f1 = initial_num_fmaps * fmap_growth

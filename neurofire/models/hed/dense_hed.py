@@ -92,6 +92,8 @@ class DenseHED(nn.Module):
             self.sampling_type_key = 4 * (sampling_type_key,)
 
         super(DenseHED, self).__init__()
+        # need to have out channels as member for inference engine
+        self.out_channels = out_channels
 
         # NOTE in contrast to nasims dense-unet impl, we don't connect the input to higher levels
         # convolutional blocks
