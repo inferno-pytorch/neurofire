@@ -167,14 +167,14 @@ class HED(nn.Module):
             self.upsampling_type_key = 5 * (upsampling_type_key,)
 
         super(HED, self).__init__()
-        self.conv1 = self.block_types[self.block_type_key[0]](in_channels, 64, conv_type, with_maxpool=False)
-        self.conv2 = self.block_types[self.block_type_key[1]](64, 128, conv_type)
-        self.conv3 = self.block_types[self.block_type_key[2]](128, 256, conv_type)
+        self.conv1 = self.block_types[self.block_type_key[0]](in_channels, 32, conv_type, with_maxpool=False)
+        self.conv2 = self.block_types[self.block_type_key[1]](32, 64, conv_type)
+        self.conv3 = self.block_types[self.block_type_key[2]](64, 256, conv_type)
         self.conv4 = self.block_types[self.block_type_key[3]](256, 512, conv_type)
         self.conv5 = self.block_types[self.block_type_key[4]](512, 512, conv_type, dilation=dilation)
 
-        self.dsn1 = output_type(64, out_channels, 1)
-        self.dsn2 = output_type(128, out_channels, 1)
+        self.dsn1 = output_type(32, out_channels, 1)
+        self.dsn2 = output_type(64, out_channels, 1)
         self.dsn3 = output_type(256, out_channels, 1)
         self.dsn4 = output_type(512, out_channels, 1)
         self.dsn5 = output_type(512, out_channels, 1)
@@ -183,11 +183,11 @@ class HED(nn.Module):
 
         # last_scale = 8 if dilation > 1 else 16
         # FIXME don't hardcode cremi values
-        self.upscore2 = self.upsampling_types[self.upsampling_type_key[0]](scale_factor=3)
-        self.upscore3 = self.upsampling_types[self.upsampling_type_key[1]](scale_factor=9)
-        self.upscore4 = self.upsampling_types[self.upsampling_type_key[2]](scale_factor=2)
+        self.upscore2 = self.upsampling_types[self.upsampling_type_key[1]](scale_factor=3)
+        self.upscore3 = self.upsampling_types[self.upsampling_type_key[2]](scale_factor=9)
+        self.upscore4 = self.upsampling_types[self.upsampling_type_key[3]](scale_factor=2)
         # self.upscore5 = self.upsampling_types[self.upsampling_type_key[3]](scale_factor=last_scale)
-        self.upscore5 = self.upsampling_types[self.upsampling_type_key[3]](scale_factor=4)
+        self.upscore5 = self.upsampling_types[self.upsampling_type_key[4]](scale_factor=4)
 
     def forward(self, x):
         conv1 = self.conv1(x)
@@ -198,13 +198,13 @@ class HED(nn.Module):
 
         # FIXME don't hardcode cremi settings
         # side output
-        d5 = self.upscore5(self.upscore2(self.dsn5(conv5)))
+        d5 = self.upscore5(self.upscore3(self.dsn5(conv5)))
         # d5 = crop(dsn5_up, gt)
 
-        d4 = self.upscore4(self.uspcore2(self.dsn4(conv4)))
+        d4 = self.upscore4(self.upscore3(self.dsn4(conv4)))
         # d4 = crop(dsn4_up, gt)
 
-        d3 = self.upscore3(self.upscore2(self.dsn3(conv3)))
+        d3 = self.upscore3(self.dsn3(conv3))
         # d3 = crop(dsn3_up, gt)
 
         d2 = self.upscore2(self.dsn2(conv2))
