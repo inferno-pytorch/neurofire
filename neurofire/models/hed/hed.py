@@ -87,9 +87,10 @@ class DefaultHEDBlock3D(nn.Module):
 # NOTE we use 3 convolutions for all blocks
 # in the initial implementations, the first 2 blocks only
 # consist of 2 convolutions
+# TODO make the pooling factor settable !!
 class AnisotropicHEDBlock(nn.Module):
     def __init__(self, in_channels, out_channels, conv_type, dilation=1,
-                 with_maxpool=True, pooling_factor=2):
+                 with_maxpool=True, pooling_factor=3):
         assert dilation == 1, "Dilation not supported for anisotropic HED"
         super(AnisotropicHEDBlock, self).__init__()
         self.conv = nn.Sequential(conv_type(in_channels, out_channels, 3, dilation),
@@ -156,7 +157,6 @@ class HED(nn.Module):
         output_type = self.output_types[output_type_key]
 
         # upsampling types can be single key or list of keys
-        assert upsampling_type_key in self.upsampling_types, upsampling_type_key
         if isinstance(upsampling_type_key, (list, tuple)):
             assert len(upsampling_type_key) == 5
             assert all(ukt in self.upsampling_types
@@ -181,11 +181,13 @@ class HED(nn.Module):
         # 6 is the fusion layer -> 5 * out_channels
         self.dsn6 = output_type(5*out_channels, out_channels, 1)
 
-        last_scale = 8 if dilation > 1 else 16
-        self.upscore2 = self.upsampling_types[self.upsampling_type_key[0]](scale_factor=2)
-        self.upscore3 = self.upsampling_types[self.upsampling_type_key[1]](scale_factor=4)
-        self.upscore4 = self.upsampling_types[self.upsampling_type_key[2]](scale_factor=8)
-        self.upscore5 = self.upsampling_types[self.upsampling_type_key[3]](scale_factor=last_scale)
+        # last_scale = 8 if dilation > 1 else 16
+        # FIXME don't hardcode cremi values
+        self.upscore2 = self.upsampling_types[self.upsampling_type_key[0]](scale_factor=3)
+        self.upscore3 = self.upsampling_types[self.upsampling_type_key[1]](scale_factor=9)
+        self.upscore4 = self.upsampling_types[self.upsampling_type_key[2]](scale_factor=2)
+        # self.upscore5 = self.upsampling_types[self.upsampling_type_key[3]](scale_factor=last_scale)
+        self.upscore5 = self.upsampling_types[self.upsampling_type_key[3]](scale_factor=4)
 
     def forward(self, x):
         conv1 = self.conv1(x)
@@ -194,14 +196,15 @@ class HED(nn.Module):
         conv4 = self.conv4(conv3)
         conv5 = self.conv5(conv4)
 
+        # FIXME don't hardcode cremi settings
         # side output
-        d5 = self.upscore5(self.dsn5(conv5))
+        d5 = self.upscore5(self.upscore2(self.dsn5(conv5)))
         # d5 = crop(dsn5_up, gt)
 
-        d4 = self.upscore4(self.dsn4(conv4))
+        d4 = self.upscore4(self.uspcore2(self.dsn4(conv4)))
         # d4 = crop(dsn4_up, gt)
 
-        d3 = self.upscore3(self.dsn3(conv3))
+        d3 = self.upscore3(self.upscore2(self.dsn3(conv3)))
         # d3 = crop(dsn3_up, gt)
 
         d2 = self.upscore2(self.dsn2(conv2))
@@ -220,4 +223,5 @@ class HED(nn.Module):
         d5 = F.sigmoid(d5)
         d6 = F.sigmoid(d6)
 
-        return d1, d2, d3, d4, d5, d6
+        # we return first, because it is usually the one used for stuff
+        return d6, d2, d3, d4, d5, d1
