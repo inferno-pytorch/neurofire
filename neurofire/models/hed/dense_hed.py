@@ -9,17 +9,14 @@ from .hed2 import DefaultHEDBlock, DefaultHEDBlock3D, Upsampling3d
 
 # dense block
 class DenseHEDBlockBase(nn.Module):
-    def __init__(self, in_channels, out_channels, conv_type1, conv_type2,
-                 dilation=1, kernel=3):
+    def __init__(self, in_channels, out_channels, conv_type1, conv_type2, kernel=3):
         super(DenseHEDBlockBase, self).__init__()
         self.conv1 = conv_type1(in_channels=in_channels,
                                 out_channels=out_channels // 2,
-                                kernel_size=kernel,
-                                dilation=dilation)
+                                kernel_size=kernel)
         self.conv2 = conv_type2(in_channels=in_channels + out_channels // 2,
                                 out_channels=out_channels // 2,
-                                kernel_size=kernel,
-                                dilation=dilation)
+                                kernel_size=kernel)
 
     def forward(self, input_):
         conv1 = self.conv1(input_)
