@@ -84,7 +84,7 @@ class DenseHED(nn.Module):
         # sampling types can be single key or list of keys
         if isinstance(sampling_type_key, (list, tuple)):
             assert len(sampling_type_key) == 4
-            assert all(skt in self.upsampling_types
+            assert all(skt in self.sampling_types
                        for skt in sampling_type_key), sampling_type_key
             self.sampling_type_key = sampling_type_key
         else:
