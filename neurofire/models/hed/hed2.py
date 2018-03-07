@@ -12,11 +12,12 @@ from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsam
 # in the initial implementations, the first 2 blocks only
 # consist of 2 convolutions
 class BaseHEDBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, conv_type1, conv_type2, conv_type3, dilation=1, stride=3):
+    def __init__(self, in_channels, out_channels, conv_type1, conv_type2, conv_type3,
+                 dilation=1, kernel=3):
         super(BaseHEDBlock, self).__init__()
-        self.conv = nn.Sequential(conv_type1(in_channels, out_channels, stride, dilation),
-                                  conv_type2(out_channels, out_channels, stride, dilation),
-                                  conv_type3(out_channels, out_channels, stride, dilation))
+        self.conv = nn.Sequential(conv_type1(in_channels, out_channels, kernel, dilation),
+                                  conv_type2(out_channels, out_channels, kernel, dilation),
+                                  conv_type3(out_channels, out_channels, kernel, dilation))
 
     def forward(self, x):
         return self.conv(x)
@@ -85,7 +86,7 @@ class HED(nn.Module):
         # sampling types can be single key or list of keys
         if isinstance(sampling_type_key, (list, tuple)):
             assert len(sampling_type_key) == 4
-            assert all(skt in self.upsampling_types
+            assert all(skt in self.sampling_types
                        for skt in sampling_type_key), sampling_type_key
             self.sampling_type_key = sampling_type_key
         else:

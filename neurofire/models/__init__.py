@@ -13,6 +13,7 @@ from .hed.fusionhed import FusionHED
 
 # TODO replace hed completely once it is not used for training any longer
 from .hed.hed2 import HED as HED2
+from .hed.dense_hed import DenseHED
 
 
 def get_model(name):

@@ -10,7 +10,7 @@ class TestHed(unittest.TestCase):
         tester = MultiscaleModelTester(shape, 6 * [shape])
         if cuda.is_available():
             tester.cuda()
-        tester(HED2(1, 1, 64, 2))  # , conv_type_key='same'))
+        tester(HED2(1, 1, 64, 2))
 
     def test_hed_3d(self):
         from neurofire.models import HED2
