@@ -10,7 +10,7 @@ class TestM2FCN(unittest.TestCase):
         tester = MultiscaleModelTester(shape, 18 * [shape])
         if cuda.is_available():
             tester.cuda()
-        tester(M2FCN(1, 1, 16, block_type_key='dense'))
+        tester(M2FCN(1, 1,  3 * (16,), block_type_key='dense'))
 
     def test_m2fcn_3d(self):
         from neurofire.models import M2FCN
@@ -18,10 +18,10 @@ class TestM2FCN(unittest.TestCase):
         tester = MultiscaleModelTester(shape, 18 * [shape])
         if cuda.is_available():
             tester.cuda()
-        tester(M2FCN(1, 1, 16, block_type_key='dense3d',
+        tester(M2FCN(1, 1,  3 * (16,), block_type_key='dense3d',
                      output_type_key='default3d',
                      sampling_type_key='default3d'))
-        tester(M2FCN(1, 1, 16, block_type_key='default3d',
+        tester(M2FCN(1, 1,  3 * (16,), block_type_key='default3d',
                      output_type_key='default3d',
                      sampling_type_key='default3d'))
 
@@ -32,7 +32,7 @@ class TestM2FCN(unittest.TestCase):
         if cuda.is_available():
             tester.cuda()
         # test default unet 3d
-        tester(M2FCN(1, 1, 16,
+        tester(M2FCN(1, 1, 3 * (16,),
                      scale_factor=[3, 3, 2, 2],
                      block_type_key='dense3d',
                      output_type_key='default3d',
