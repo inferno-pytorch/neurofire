@@ -223,5 +223,5 @@ class HED(nn.Module):
         d5 = F.sigmoid(d5)
         d6 = F.sigmoid(d6)
 
-        # we return first, because it is usually the one used for stuff
+        # we return d6 first, because it is usually the one used for stuff
         return d6, d2, d3, d4, d5, d1

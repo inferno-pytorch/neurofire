@@ -16,6 +16,8 @@ from .hed.hed2 import HED as HED2
 from .hed.dense_hed import DenseHED
 from .hed.m2fcn import M2FCN
 
+from .mad_net.mad_2d import MAD2D
+
 
 def get_model(name):
     assert name in globals(), "Model not found."
