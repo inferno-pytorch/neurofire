@@ -11,6 +11,18 @@ except ImportError as e:
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
+# helper function that returns affinity transformation
+# from config
+def affinity_config_to_transform(**affinity_config):
+    assert ('offsets' in affinity_config) != ('block_shapes' in affinity_config), \
+        "Need either 'offsets' or 'block_shapes' parameter in config"
+
+    if 'offsets' in affinity_config:
+        return Segmentation2Affinities(**affinity_config)
+    else:
+        return Segmentation2MultiscaleAffinities(**affinity_config)
+
+
 class Segmentation2Affinities(Transform, DtypeMapping):
     def __init__(self, offsets, dtype='float32',
                  retain_mask=False,

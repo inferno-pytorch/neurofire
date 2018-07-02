@@ -1,9 +1,9 @@
 from numbers import Integral
 import numpy as np
 
-import torch
 import torch.nn as nn
 
+from inferno.utils.python_utils import is_listlike
 from .loss_transforms import MaskTransitionToIgnoreLabel
 
 
@@ -78,8 +78,17 @@ class LossWrapper(nn.Module):
             weight = self.weight_function(prediction, target)
             self.criterion.weight = weight
 
+        # apply the transforms to prediction and target or a list of predictions and targets
         if self.transforms is not None:
-            transformed_prediction, transformed_target = self.transforms(prediction, target)
+            if is_listlike(prediction):
+                assert is_listlike(target)
+                transformed_prediction, transformed_target = [], []
+                for pred, targ in zip(prediction, target):
+                    tr_pred, tr_targ = self.transforms(pred, targ)
+                    transformed_prediction.append(tr_pred)
+                    transformed_target.append(tr_targ)
+            else:
+                transformed_prediction, transformed_target = self.transforms(prediction, target)
         else:
             transformed_prediction, transformed_target = prediction, target
 
@@ -92,7 +101,7 @@ class MultiOutputLossWrapper(nn.Module):
     """
     Wrapper around a torch criterion.
     Enables transforms before applying the criterion.
-    expects a list of tensors as input and returns the sum of loss over all elements
+    Expects a list of tensors as input and returns the sum of loss over all elements.
     """
     def __init__(self,
                  criterion,
@@ -123,6 +132,3 @@ class MultiOutputLossWrapper(nn.Module):
 
         loss = loss + self.slice_loss(predictions[-1], target)
         return loss
-
-# TODO something analogous to `AsSegmentationCriterion` from neuro-skunkworks to
-# move loss preprocessing to the gpu ?!

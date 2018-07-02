@@ -44,6 +44,27 @@ class RemoveSegmentationFromTarget(Transform):
         return prediction, target[:, 1:]
 
 
+class ApplyAndRemoveMask(Transform):
+    def __init__(self, **super_kwargs):
+        super(ApplyAndRemoveMask, self).__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        # validate the prediction
+        assert prediction.dim() in [4, 5], prediction.dim()
+        assert target.dim() == prediction.dim()
+        assert target.size(1) == 2 * prediction.size(1), "%i, %i" % (target.size(1), prediction.size(1))
+        seperating_channel = target.size(1) // 2
+        mask = target[:, seperating_channel:]
+        target = target[:, :seperating_channel]
+        mask_variable = Variable(torch.from_numpy(mask), requires_grad=False)
+
+        # mask prediction with mask
+        masked_prediction = prediction * mask_variable
+        return masked_prediction, target
+
+
 class MaskTransitionToIgnoreLabel(Transform):
     """Applies a mask where the transition to zero label is masked for the respective offsets."""
     def __init__(self, offsets, ignore_label=0, **super_kwargs):

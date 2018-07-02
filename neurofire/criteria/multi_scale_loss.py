@@ -13,21 +13,11 @@ class MultiScaleLoss(nn.Module):
         self.n_scales = n_scales
         # per default, we weight each scale's loss with 1 / 4**scale_level i. (1, 1/4, 1/16, 1/128, ...)
         if scale_weights is None:
-            self.scale_weights = [4**scale for scale in range(n_scales)]
+            self.scale_weights = [1. / 4**scale for scale in range(n_scales)]
         else:
             assert isinstance(scale_weights, (list, tuple))
             assert len(scale_weights) == n_scales
             self.scale_weights = scale_weights
-
-        # For reference: Steffen's defaults
-        # aff_trafo was never used
-        # self.aff_trafo = ManySegmentationsToFuzzyAffinities(dim=2,
-        #                             offsets=offsets, retain_segmentation=True)
-
-        # self.loss = LossWrapper(criterion=SorensenDiceLoss(),
-        #                     transforms=Compose(MaskTransitionToIgnoreLabel(offsets, ignore_label=0),
-        #                                        RemoveSegmentationFromTarget(),
-        #                                        InvertTarget()))
 
     def forward(self, predictions, targets):
         assert isinstance(predictions, (list, tuple))
@@ -37,7 +27,7 @@ class MultiScaleLoss(nn.Module):
         # TODO make sure that this actually checks out with pytorch logics
         # calculate and add up the loss for each scale, weighted by the corresponding factor
         # (weighting factor 0 disables the scale)
-        loss = sum([self.loss(ps, ts) / ws
+        loss = sum([self.loss(ps, ts) * ws
                     for ps, ts, ws in zip(predictions, targets, self.scale_weights) if ws > 0])
         return loss
 
