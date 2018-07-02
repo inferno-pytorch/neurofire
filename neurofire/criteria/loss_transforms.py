@@ -48,6 +48,7 @@ class MaskTransitionToIgnoreLabel(Transform):
     """Applies a mask where the transition to zero label is masked for the respective offsets."""
     def __init__(self, offsets, ignore_label=0,
                  mode='apply_mask_to_batch',
+                 targets_are_inverted=True,
                  **super_kwargs):
         """
         Added additional parameter.
@@ -58,6 +59,7 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert len(offsets) > 0
         self.dim = len(offsets[0])
         self.offsets = offsets
+        self.targets_are_inverted = targets_are_inverted
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
 
@@ -150,7 +152,15 @@ class MaskTransitionToIgnoreLabel(Transform):
             # Mask prediction with master mask
             masked_prediction = prediction * full_mask_variable
             targ_affinities = target[:, 1:]
-            targ_affinities = targ_affinities * full_mask_variable
+            # Legacy:
+            self.targets_are_inverted = self.targets_are_inverted if hasattr(self, 'targets_are_inverted') else True
+
+            if self.targets_are_inverted:
+                targ_affinities = 1 - targ_affinities
+                targ_affinities = targ_affinities * full_mask_variable
+                targ_affinities = 1 - targ_affinities
+            else:
+                targ_affinities = targ_affinities * full_mask_variable
             target = torch.cat((segmentation, targ_affinities), dim=1)
             return masked_prediction, target
         elif self.mode == 'return_mask':
