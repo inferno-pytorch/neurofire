@@ -88,5 +88,41 @@ class LossWrapper(nn.Module):
         return loss
 
 
+class MultiOutputLossWrapper(nn.Module):
+    """
+    Wrapper around a torch criterion.
+    Enables transforms before applying the criterion.
+    expects a list of tensors as input and returns the sum of loss over all elements
+    """
+    def __init__(self,
+                 criterion,
+                 transforms=None):
+        super(MultiOutputLossWrapper, self).__init__()
+        # validate: the criterion needs to inherit from nn.Module
+        assert isinstance(criterion, nn.Module)
+        self.criterion = criterion
+        # validate: transforms need to be callable
+        if transforms is not None:
+            assert callable(transforms)
+        self.transforms = transforms
+        self.weight = 1
+
+    def slice_loss(self, pred, target):
+        if self.transforms is not None:
+            transformed_prediction, transformed_target = self.transforms(pred, target)
+        else:
+            transformed_prediction, transformed_target = pred, target
+        return self.criterion(transformed_prediction, transformed_target)
+
+    def forward(self, predictions, target):
+        loss = 0
+        assert isinstance(predictions, (list, tuple))
+        for pred in predictions[:-1]:
+            if self.weight > 0:
+                loss = loss + self.weight * self.slice_loss(pred, target)
+
+        loss = loss + self.slice_loss(predictions[-1], target)
+        return loss
+
 # TODO something analogous to `AsSegmentationCriterion` from neuro-skunkworks to
 # move loss preprocessing to the gpu ?!
