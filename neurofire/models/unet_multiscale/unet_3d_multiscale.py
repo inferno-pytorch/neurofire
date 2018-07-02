@@ -1,52 +1,7 @@
 import torch.nn as nn
-from ..unet.base import XcoderResidual
-from ..unet.unet_3d import Output, CONV_TYPES, Encoder, Decoder, Base
+
 from .base import UNetSkeletonMultiscale
-from inferno.extensions.layers.convolutional import ConvELU3D
-from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsample
-
-
-class EncoderResidual(XcoderResidual):
-    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D):
-        assert isinstance(scale_factor, (int, list, tuple))
-        if isinstance(scale_factor, (list, tuple)):
-            assert len(scale_factor) == 3
-            # we need to make sure that the scale factor conforms with the single value
-            # that AnisotropicPool expects
-            assert scale_factor[0] == 1
-            assert scale_factor[1] == scale_factor[2]
-            sampler = AnisotropicPool(downscale_factor=scale_factor[1])
-        else:
-            sampler = nn.MaxPool3d(kernel_size=1 + scale_factor,
-                                   stride=scale_factor,
-                                   padding=1)
-        super(EncoderResidual, self).__init__(in_channels, out_channels, kernel_size,
-                                              conv_type=conv_type,
-                                              pre_output=sampler)
-
-
-class DecoderResidual(XcoderResidual):
-    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU3D):
-        assert isinstance(scale_factor, (int, list, tuple))
-        if isinstance(scale_factor, (list, tuple)):
-            assert len(scale_factor) == 3
-            # we need to make sure that the scale factor conforms with the single value
-            # that AnisotropicPool expects
-            assert scale_factor[0] == 1
-            assert scale_factor[1] == scale_factor[2]
-            sampler = AnisotropicUpsample(scale_factor=scale_factor[1])
-        else:
-            sampler = nn.Upsample(scale_factor=scale_factor)
-        super(DecoderResidual, self).__init__(in_channels, out_channels, kernel_size,
-                                              conv_type=conv_type,
-                                              pre_output=sampler)
-
-
-class BaseResidual(XcoderResidual):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU3D):
-        super(BaseResidual, self).__init__(in_channels, out_channels, kernel_size,
-                                           conv_type=conv_type,
-                                           pre_output=None)
+from ..unet.unet_3d import Output, CONV_TYPES, Encoder, Decoder, Base, EncoderResidual, DecoderResidual, BaseResidual
 
 
 class UNet3DMultiscale(UNetSkeletonMultiscale):
