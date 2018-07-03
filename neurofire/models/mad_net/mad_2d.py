@@ -16,10 +16,10 @@ class MADBlock2D(nn.Module):
 
     def __init__(self, in_channels, out_channels,
                  n_convs=3, kernel_size=3, residual=False):
-        super(self, MADBlock2D).__init__()
+        super(MADBlock2D, self).__init__()
         convs = [self.conv_type(in_channels, out_channels, kernel_size)]
         convs += (n_convs - 1) * [self.conv_type(out_channels, in_channels, kernel_size)]
-        self.conv = nn.Sqequential(*convs)
+        self.conv = nn.Sequential(*convs)
         self.residual = residual
 
     def forward(self, x):
@@ -33,7 +33,7 @@ class MAD2D(nn.Module):
 
     def __init__(self, in_channels, out_channels, initial_num_fmaps=32, fmap_growth=2):
         num_fmaps = [initial_num_fmaps * fmap_growth**i for i in range(5)]
-        super(self, MAD2D).__init__()
+        super(MAD2D, self).__init__()
         # first convolutional block and pooling.
         self.block0 = MADBlock2D(in_channels, num_fmaps[0], n_convs=2)
         self.pool0 = nn.MaxPool2d(2)

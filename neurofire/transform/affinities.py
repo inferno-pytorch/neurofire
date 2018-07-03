@@ -74,20 +74,27 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
         assert self.dim in (2, 3), str(self.dim)
         assert all(len(bs) == self.dim for bs in block_shapes[1:])
 
-        self.dtyp = dtype
+        self.dtype = dtype
         self.ignore_label = ignore_label
         self.retain_mask = retain_mask
 
     def tensor_function(self, tensor):
         outputs = []
         for bs in self.block_shapes:
-            # need to cast tensor to np array ?!
-            if self.ignore_label is None:
-                output, mask = affinities.compute_multiscale_affinities(tensor, bs,
-                                                                        ignore_label=self.ignore_label,
-                                                                        have_ignore_label=True)
+            # if the block shape is all ones, we can compute normal affinities
+	    # with nearest neighbor offsets. This should yield the same result,
+            # but should be more efficient.
+            original_scale = all(s == 1 for s in bs) 
+            if original_scale:
+                offsets = [[0 if i != d else -1 for i in range(self.dim)]
+			   for d in range(self.dim)]
+                output, mask = affinities.compute_affinities(tensor.astype('uint64'), offsets,
+                                                             ignore_label=0 if self.ignore_label is None else self.ignore_label,
+                                                             have_ignore_label=False if self.ignore_label is None else True)
             else:
-                output, mask = affinities.compute_multiscale_affinities(tensor, bs)
+                output, mask = affinities.compute_multiscale_affinities(tensor.astype('uint64'), bs,
+                                                                        ignore_label=0 if self.ignore_label is None else self.ignore_label,
+                                                                        have_ignore_label=False if self.ignore_label is None else True)
 
             # Cast to be sure
             if not output.dtype == self.dtype:
