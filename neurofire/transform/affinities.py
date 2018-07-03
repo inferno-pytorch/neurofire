@@ -11,8 +11,8 @@ except ImportError as e:
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
-# helper function that returns affinity transformation
-# from config
+# TODO add more options (membrane prediction)
+# helper function that returns affinity transformation from config
 def affinity_config_to_transform(**affinity_config):
     assert ('offsets' in affinity_config) != ('block_shapes' in affinity_config), \
         "Need either 'offsets' or 'block_shapes' parameter in config"
