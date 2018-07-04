@@ -80,13 +80,11 @@ class LossWrapper(nn.Module):
 
         # apply the transforms to prediction and target or a list of predictions and targets
         if self.transforms is not None:
-            if is_listlike(prediction):
-                assert is_listlike(target)
-                transformed_prediction, transformed_target = [], []
-                for pred, targ in zip(prediction, target):
-                    tr_pred, tr_targ = self.transforms(pred, targ)
-                    transformed_prediction.append(tr_pred)
-                    transformed_target.append(tr_targ)
+            transformed_prediction, transformed_target = [], []
+            for pred, targ in zip(prediction, target):
+                tr_pred, tr_targ = self.transforms(pred, targ)
+                transformed_prediction.append(tr_pred)
+                transformed_target.append(tr_targ)
             else:
                 transformed_prediction, transformed_target = self.transforms(prediction, target)
         else:

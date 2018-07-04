@@ -88,11 +88,11 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
             if original_scale:
                 offsets = [[0 if i != d else -1 for i in range(self.dim)]
 			   for d in range(self.dim)]
-                output, mask = affinities.compute_affinities(tensor.astype('uint64'), offsets,
+                output, mask = affinities.compute_affinities(tensor.squeeze().astype('uint64'), offsets,
                                                              ignore_label=0 if self.ignore_label is None else self.ignore_label,
                                                              have_ignore_label=False if self.ignore_label is None else True)
             else:
-                output, mask = affinities.compute_multiscale_affinities(tensor.astype('uint64'), bs,
+                output, mask = affinities.compute_multiscale_affinities(tensor.squeeze().astype('uint64'), bs,
                                                                         ignore_label=0 if self.ignore_label is None else self.ignore_label,
                                                                         have_ignore_label=False if self.ignore_label is None else True)
 

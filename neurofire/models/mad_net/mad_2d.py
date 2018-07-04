@@ -18,7 +18,7 @@ class MADBlock2D(nn.Module):
                  n_convs=3, kernel_size=3, residual=False):
         super(MADBlock2D, self).__init__()
         convs = [self.conv_type(in_channels, out_channels, kernel_size)]
-        convs += (n_convs - 1) * [self.conv_type(out_channels, in_channels, kernel_size)]
+        convs += (n_convs - 1) * [self.conv_type(out_channels, out_channels, kernel_size)]
         self.conv = nn.Sequential(*convs)
         self.residual = residual
 
@@ -29,7 +29,7 @@ class MADBlock2D(nn.Module):
 # TODO enable residual MAD block
 class MAD2D(nn.Module):
     output_type = Conv2D
-    activation = F.sigmoid
+    # activation = F.sigmoid
 
     def __init__(self, in_channels, out_channels, initial_num_fmaps=32, fmap_growth=2):
         num_fmaps = [initial_num_fmaps * fmap_growth**i for i in range(5)]
@@ -61,10 +61,10 @@ class MAD2D(nn.Module):
         # maybe we don't have to with multiscale affinities ?
 
         # default HED:
-        self.upsample1 = nn.Upsample(2, mode='bilinear')
-        self.upsample2 = nn.Upsample(4, mode='bilinear')
-        self.upsample3 = nn.Upsample(8, mode='bilinear')
-        self.upsample4 = nn.Upsample(16, mode='bilinear')
+        self.upsample1 = nn.Upsample(scale_factor=2, mode='bilinear')
+        self.upsample2 = nn.Upsample(scale_factor=4, mode='bilinear')
+        self.upsample3 = nn.Upsample(scale_factor=8, mode='bilinear')
+        self.upsample4 = nn.Upsample(scale_factor=16, mode='bilinear')
         self.out = self.output_type(5 * out_channels, out_channels, 1)
 
         # alternative: small network (upsampling same as above)
@@ -85,12 +85,11 @@ class MAD2D(nn.Module):
 
     def forward(self, x):
         # apply convolutions and pool
-        conv0 = self.conv0(x)
-        conv1 = self.conv1(self.pool0(conv0))
-        conv2 = self.conv2(self.pool1(conv1))
-        conv3 = self.conv3(self.pool2(conv2))
-        conv4 = self.conv4(self.pool3(conv3))
-        conv5 = self.conv5(self.pool4(conv4))
+        conv0 = self.block0(x)
+        conv1 = self.block1(self.pool0(conv0))
+        conv2 = self.block2(self.pool1(conv1))
+        conv3 = self.block3(self.pool2(conv2))
+        conv4 = self.block4(self.pool3(conv3))
 
         # get intermediate results
         out0 = self.intermed0(conv0)
@@ -98,7 +97,6 @@ class MAD2D(nn.Module):
         out2 = self.intermed2(conv2)
         out3 = self.intermed3(conv3)
         out4 = self.intermed4(conv4)
-        out5 = self.intermed5(conv5)
 
         # default HED:
         # upsample all outputs and apply final convolution
@@ -106,11 +104,14 @@ class MAD2D(nn.Module):
         up2 = self.upsample2(out2)
         up3 = self.upsample3(out3)
         up4 = self.upsample4(out4)
+
         out = self.out(torch.cat((out0, up1, up2, up3, up4), 1))
+        
         # TODO more clever alternative ?!
         # out = ''
-
-        return (self.activation(out), self.activation(out0),
-                self.activation(out1), self.activation(out2),
-                self.activation(out3), self.activation(out4),
-                self.activation(out5))
+	
+        activation = F.sigmoid
+        print("Net output sizes:", out.size(), out0.size(), out1.size())
+        return (activation(out), activation(out0),
+                activation(out1), activation(out2),
+                activation(out3), activation(out4))

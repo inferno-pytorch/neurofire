@@ -51,14 +51,21 @@ class ApplyAndRemoveMask(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
+        # print("Pred size:", prediction.size())
+        # print("Targ size:", target.size())
+        # FIXME sometimes there is the batch dim missing
+        if prediction.dim() == 3:
+            prediction = prediction[None]
+            target = target[None]
         # validate the prediction
         assert prediction.dim() in [4, 5], prediction.dim()
-        assert target.dim() == prediction.dim()
+        assert target.dim() == prediction.dim(), "%i, %i" % (target.dim(), prediction.dim())
         assert target.size(1) == 2 * prediction.size(1), "%i, %i" % (target.size(1), prediction.size(1))
         seperating_channel = target.size(1) // 2
         mask = target[:, seperating_channel:]
         target = target[:, :seperating_channel]
-        mask_variable = Variable(torch.from_numpy(mask), requires_grad=False)
+        # mask_variable = Variable(torch.from_numpy(mask), requires_grad=False)
+        mask_variable = Variable(mask, requires_grad=False)
 
         # mask prediction with mask
         masked_prediction = prediction * mask_variable

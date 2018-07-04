@@ -6,7 +6,7 @@ from .loss_wrapper import LossWrapper
 
 class MultiScaleLoss(nn.Module):
     # Steffen's arguments `offsets` and `scale_facter` were never used
-    def __init__(self, loss, n_scales=4, scale_weights=None):
+    def __init__(self, loss, n_scales=4, scale_weights=None, fill_missing_targets=False):
         super(MultiScaleLoss, self).__init__()
         assert isinstance(loss, LossWrapper)
         self.loss = loss
@@ -18,12 +18,23 @@ class MultiScaleLoss(nn.Module):
             assert isinstance(scale_weights, (list, tuple))
             assert len(scale_weights) == n_scales
             self.scale_weights = scale_weights
+        # flag to indicate if we should fill up missing targets if
+        # the length of prediction and target is not the same
+        self.fill_missing_targets = fill_missing_targets
 
     def forward(self, predictions, targets):
         assert isinstance(predictions, (list, tuple))
-        assert len(targets) == len(predictions)
-        assert len(predictions) == self.n_scales
-
+        assert len(predictions) == self.n_scales, "%i, %i" % (len(predictions), self.n_scales)
+        same_len = len(predictions) == len(targets)
+	
+        # if we have different number of targets and predictions, we might have a fusion layer
+        # that produces predictions at the original scale. In this case, we can just fill up the missing
+        # targets with the 0-level target. (only if fill_missing_targets == True)
+        if not same_len:
+            assert self.fill_missing_targets and len(predictions) > len(targets)
+            n_missing = len(predictions) - len(targets)
+            targets = n_missing * [targets[0]] + targets
+                        
         # TODO make sure that this actually checks out with pytorch logics
         # calculate and add up the loss for each scale, weighted by the corresponding factor
         # (weighting factor 0 disables the scale)
