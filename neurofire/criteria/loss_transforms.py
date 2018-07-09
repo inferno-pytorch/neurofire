@@ -41,8 +41,11 @@ class RemoveSegmentationFromTarget(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        return prediction, target[:, 1:]
-
+        # FIXME somentimes the batch dim is missing !!!
+        if prediction.dim() == 3:
+            return prediction, target[1:]
+        else:
+            return prediction, target[:, 1:]
 
 class ApplyAndRemoveMask(Transform):
     def __init__(self, **super_kwargs):
