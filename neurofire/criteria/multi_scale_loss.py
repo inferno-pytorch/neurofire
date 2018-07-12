@@ -26,7 +26,7 @@ class MultiScaleLoss(nn.Module):
         assert isinstance(predictions, (list, tuple))
         assert len(predictions) == self.n_scales, "%i, %i" % (len(predictions), self.n_scales)
         same_len = len(predictions) == len(targets)
-	
+
         # if we have different number of targets and predictions, we might have a fusion layer
         # that produces predictions at the original scale. In this case, we can just fill up the missing
         # targets with the 0-level target. (only if fill_missing_targets == True)
@@ -34,7 +34,7 @@ class MultiScaleLoss(nn.Module):
             assert self.fill_missing_targets and len(predictions) > len(targets)
             n_missing = len(predictions) - len(targets)
             targets = n_missing * [targets[0]] + targets
-                        
+
         # TODO make sure that this actually checks out with pytorch logics
         # calculate and add up the loss for each scale, weighted by the corresponding factor
         # (weighting factor 0 disables the scale)
@@ -46,18 +46,23 @@ class MultiScaleLoss(nn.Module):
 # TODO
 # - this should go somewhere else (inferno.extensions)
 # - should check if some existing torch functionality can be used
-class Downsampler3D(object):
-    def __init__(self, scale_factor):
+class Downsampler(object):
+    def __init__(self, scale_factor, ndim=None):
         assert isinstance(scale_factor, (list, int, tuple))
         if isinstance(scale_factor, (list, tuple)):
-            assert len(scale_factor) == 3
             assert all(isinstance(sf, int) for sf in scale_factor)
+            if ndim is None:
+                ndim = len(scale_factor)
+            else:
+                assert len(scale_factor) == ndim
             self.scale_factor = scale_factor
         else:
+            assert ndim is not None, "Cannot infer dimension from scalar downsample factor"
             self.scale_factor = 3 * (scale_factor,)
+        self.ds_slice = (slice(None),) + tuple(slice(None, None, sf) for sf in scale_factor)
 
     def __call__(self, input_):
-        return input_[:, :, ::self.scale_factor[0], ::self.scale_factor[1], ::self.scale_factor[2]]
+        return input_[self.ds_slice]
 
 
 class MultiScaleLossMaxPool(MultiScaleLoss):
@@ -95,7 +100,7 @@ class MultiScaleLossMaxPool(MultiScaleLoss):
         # we need to add transformations for the segmentations as well
         # TODO generalize this to 2 and 3D
         if self.retain_segmentation:
-            self.samplers = [Downsampler3D(sf) for sf in self.scaling_factor]
+            self.samplers = [Downsampler(sf) for sf in self.scaling_factor]
 
     def forward(self, predictions, target):
         assert isinstance(predictions, (list, tuple))

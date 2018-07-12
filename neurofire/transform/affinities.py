@@ -1,13 +1,14 @@
 import numpy as np
-from inferno.io.transform import Transform
 import inferno.utils.python_utils as pyu
+from inferno.io.transform import Transform
+from ..criteria.multi_scale_loss import Downsampler
 from .segmentation import DtypeMapping
 
 try:
-    import affinities
-    HAVE_AFFINITIES = True
+    import affogato
+    HAVE_AFFOGATO = True
 except ImportError as e:
-    HAVE_AFFINITIES = False
+    HAVE_AFFOGATO = False
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
@@ -27,7 +28,7 @@ class Segmentation2Affinities(Transform, DtypeMapping):
     def __init__(self, offsets, dtype='float32',
                  retain_mask=False, ignore_label=None,
                  retain_segmentation=False, **super_kwargs):
-        assert HAVE_AFFINITIES, "Couldn't find 'affinities' module, affinity calculation is not available"
+        assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
         self.dim = len(offsets[0])
@@ -41,13 +42,14 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # self.add_singleton_channel_dimension = add_singleton_channel_dimension
 
     def tensor_function(self, tensor):
+        from affogato.affinities import compute_affinities
         # need to cast tensor to np array ?!
         if self.ignore_label is not None:
-            output, mask = affinities.compute_affinities(tensor.squeeze(), self.offsets,
-                                                         ignore_label=self.ignore_label,
-                                                         have_ignore_label=True)
+            output, mask = compute_affinities(tensor.squeeze(), self.offsets,
+                                              ignore_label=self.ignore_label,
+                                              have_ignore_label=True)
         else:
-            output, mask = affinities.compute_affinities(tensor.squeeze(), self.offsets)
+            output, mask = compute_affinities(tensor.squeeze(), self.offsets)
 
         # Cast to be sure
         if not output.dtype == self.dtype:
@@ -72,7 +74,7 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
     def __init__(self, block_shapes, dtype='float32', ignore_label=None,
                  retain_mask=False, retain_segmentation=False, **super_kwargs):
         super(Segmentation2MultiscaleAffinities, self).__init__(**super_kwargs)
-        assert HAVE_AFFINITIES, "Couldn't find 'affinities' module, affinity calculation is not available"
+        assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(block_shapes)
         self.block_shapes = block_shapes
         self.dim = len(block_shapes[0])
@@ -83,10 +85,13 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
         self.ignore_label = ignore_label
         self.retain_mask = retain_mask
         self.retain_segmentation = retain_segmentation
+        if self.retain_segmentation:
+            self.downsamplers = [Downsampler(bs) for bs in self.block_shapes]
 
     def tensor_function(self, tensor):
+        from affogato.affinities import compute_multiscale_affinities, compute_affinities
         outputs = []
-        for bs in self.block_shapes:
+        for ii, bs in enumerate(self.block_shapes):
             # if the block shape is all ones, we can compute normal affinities
             # with nearest neighbor offsets. This should yield the same result,
             # but should be more efficient.
@@ -94,13 +99,13 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
             if original_scale:
                 offsets = [[0 if i != d else -1 for i in range(self.dim)]
                            for d in range(self.dim)]
-                output, mask = affinities.compute_affinities(tensor.squeeze().astype('uint64'), offsets,
+                output, mask = compute_affinities(tensor.squeeze().astype('uint64'), offsets,
+                                                  ignore_label=0 if self.ignore_label is None else self.ignore_label,
+                                                  have_ignore_label=False if self.ignore_label is None else True)
+            else:
+                output, mask = compute_multiscale_affinities(tensor.squeeze().astype('uint64'), bs,
                                                              ignore_label=0 if self.ignore_label is None else self.ignore_label,
                                                              have_ignore_label=False if self.ignore_label is None else True)
-            else:
-                output, mask = affinities.compute_multiscale_affinities(tensor.squeeze().astype('uint64'), bs,
-                                                                        ignore_label=0 if self.ignore_label is None else self.ignore_label,
-                                                                        have_ignore_label=False if self.ignore_label is None else True)
 
             # Cast to be sure
             if not output.dtype == self.dtype:
@@ -113,7 +118,8 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
             # We might want to carry the segmentation along for validation.
             # If this is the case, we insert it before the targets for the original scale.
             if self.retain_segmentation:
-                output = np.concatenate((tensor.astype(self.dtype, copy=False), output), axis=0)
+                output = np.concatenate((self.downsamplers[ii](tensor.astype(self.dtype, copy=False)),
+                                         output), axis=0)
             outputs.append(output)
 
         return outputs

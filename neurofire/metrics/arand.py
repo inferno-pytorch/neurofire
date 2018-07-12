@@ -5,10 +5,10 @@ import inferno.utils.python_utils as pyu
 from inferno.extensions.metrics.arand import ArandError
 
 try:
-    import affinities
-    HAVE_AFFINITIES = True
+    import affogato
+    HAVE_AFFOGATO = True
 except ImportError as e:
-    HAVE_AFFINITIES = False
+    HAVE_AFFOGATO = True
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
@@ -17,13 +17,14 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandError):
 
     def __init__(self, thresholds=0.5, invert_affinities=False,
                  normalize_affinities=False):
-        assert HAVE_AFFINITIES, "Couldn't find 'affinities' module, affinity calculation is not available"
+        assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
         super(ArandErrorFromConnectedComponentsOnAffinities, self).__init__()
         self.thresholds = pyu.to_iterable(thresholds)
         self.invert_affinities = invert_affinities
         self.normalize_affinities = normalize_affinities
 
     def affinity_to_segmentation(self, affinity_batch, thresh):
+        from affogato.segmentation import connected_components
         assert affinity_batch.dim() in [4, 5], \
             "`affinity_batch` must be a 4D batch of 2D images or a 5D batch of 3D volumes."
         dim = affinity_batch.dim() - 2
@@ -34,7 +35,7 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandError):
         if self.normalize_affinities:
             affinity_batch = affinity_batch / affinity_batch.max()
         # Compute the segmentation via connected components on the affinities
-        connected_components = np.array([affinities.connected_components(batch[:dim], thresh)[0]
+        connected_components = np.array([connected_components(batch[:dim], thresh)[0]
                                          for batch in affinity_batch])
         return torch.from_numpy(connected_components[:, None].astype('int32'))
 
