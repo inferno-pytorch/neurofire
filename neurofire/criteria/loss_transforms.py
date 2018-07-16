@@ -179,3 +179,13 @@ class InvertTarget(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         return prediction, 1. - target
+
+
+class InvertPrediction(Transform):
+    def __init__(self, **super_kwargs):
+        super(InvertPrediction, self).__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        return 1. - prediction, target
