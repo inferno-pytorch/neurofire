@@ -62,7 +62,7 @@ class LossWrapper(nn.Module):
                  weight_function=None):
         super(LossWrapper, self).__init__()
         # validate: the criterion needs to inherit from nn.Module
-        assert isinstance(criterion, nn.Module)
+        # assert isinstance(criterion, nn.Module)
         self.criterion = criterion
         # validate: transforms need to be callable
         if transforms is not None:
