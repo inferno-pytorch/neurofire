@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Function
 
 try:
-    import affogato
+    import affogato.learning as affl
     HAVE_AFFOGATO = True
 except ImportError:
     HAVE_AFFOGATO = False
@@ -14,7 +14,6 @@ class MalisLoss(Function):
     Compute the constrained malis loss.
     """
     def __init__(self, ndim=3):
-        import affogato.learning as affl
         assert ndim in (2, 3)
         assert HAVE_AFFOGATO, "Need `affogato` module to compute malis loss"
         self.malis_function = affl.compute_malis_2d if ndim == 2 else affl.compute_malis_3d
@@ -24,12 +23,26 @@ class MalisLoss(Function):
         else:
             self.offsets = [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]
 
+    # can't pickle this by default (probably due to saved tensors ?)
+    def __getstate__(self):
+        return self.ndim
+
+    def __setstate__(self, ndim):
+        self.ndim = ndim
+        if ndim == 2:
+            self.offsets = [[-1, 0], [0, -1]]
+        else:
+            self.offsets = [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]
+        self.malis_function = affl.compute_malis_2d if ndim == 2 else affl.compute_malis_3d
+
     def forward(self, input_, target):
         input_ = input_.detach()
         # TODO for multi-gpu training we probably need to remember the cuda devices here
         if input_.is_cuda:
             input_ = input_.cpu()
             is_cuda = True
+        else:
+            is_cuda = False
         if target.is_cuda:
             target = target.cpu()
         input_ = input_.numpy()

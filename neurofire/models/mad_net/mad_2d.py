@@ -106,12 +106,12 @@ class MAD2D(nn.Module):
         up4 = self.upsample4(out4)
 
         out = self.out(torch.cat((out0, up1, up2, up3, up4), 1))
-        
+
         # TODO more clever alternative ?!
         # out = ''
-	
+
         activation = F.sigmoid
-        print("Net output sizes:", out.size(), out0.size(), out1.size())
+        # print("Net output sizes:", out.size(), out0.size(), out1.size())
         return (activation(out), activation(out0),
                 activation(out1), activation(out2),
                 activation(out3), activation(out4))
