@@ -61,6 +61,7 @@ class XcoderResidual(Xcoder):
                                     kernel_size=self.kernel_size)
 
     def forward(self, input_):
+        input_ = input_ if self.pre_conv is None else self.pre_conv(input_)
         conv1_out = self.conv1(input_)
         conv2_out = self.conv2(conv1_out)
         conv3_out = self.conv3(conv2_out)
@@ -68,8 +69,8 @@ class XcoderResidual(Xcoder):
         # Add skip connection:
         out = conv1_out + conv3_out
 
-        if self.pre_output is not None:
-            out = self.pre_output(out)
+        if self.post_conv is not None:
+            out = self.post_conv(out)
 
         return out
 
