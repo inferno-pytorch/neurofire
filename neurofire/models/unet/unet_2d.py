@@ -1,34 +1,48 @@
 import torch.nn as nn
 from inferno.extensions.layers.convolutional import ConvELU2D, Conv2D, BNReLUConv2D
 from .base import UNetSkeleton, Xcoder
-from skunkworks.models.attention import SpatialAttentionELU2D
+# from skunkworks.models.attention import SpatialAttentionELU2D
 
 CONV_TYPES = {'vanilla': ConvELU2D,
-              'conv_bn': BNReLUConv2D,
-              'attention': SpatialAttentionELU2D}
+              'conv_bn': BNReLUConv2D}
+              # 'attention': SpatialAttentionELU2D}
 
 
 class Encoder(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D, scale_factor=2):
+    def __init__(self, in_channels, out_channels, kernel_size,
+                 conv_type=ConvELU2D, scale_factor=2):
+        if scale_factor > 0:
+            pool = nn.MaxPool2d(kernel_size=1 + scale_factor,
+                                stride=scale_factor,
+                                padding=1)
+        else:
+            pool = None
         super(Encoder, self).__init__(in_channels, out_channels, kernel_size,
                                       conv_type=conv_type,
-                                      pre_output=nn.MaxPool2d(kernel_size=1 + scale_factor,
-                                                              stride=scale_factor,
-                                                              padding=1))
+                                      pre_conv=pool)
 
 
 class Decoder(Xcoder):
     def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D, scale_factor=2):
+        if scale_factor > 0:
+            sample = nn.Upsample(scale_factor=scale_factor)
+        else:
+            sample = None
         super(Decoder, self).__init__(in_channels, out_channels, kernel_size,
                                       conv_type=conv_type,
-                                      pre_output=nn.Upsample(scale_factor=scale_factor))
+                                      post_conv=sample)
 
 
 class Base(Xcoder):
-    def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D):
+    def __init__(self, in_channels, out_channels, kernel_size, scale_factor=2, conv_type=ConvELU2D):
+        pool = nn.MaxPool2d(kernel_size=1 + scale_factor,
+                            stride=scale_factor,
+                            padding=1)
+        sample = nn.Upsample(scale_factor=scale_factor)
         super(Base, self).__init__(in_channels, out_channels, kernel_size,
                                    conv_type=conv_type,
-                                   pre_output=None)
+                                   pre_conv=pool,
+                                   post_conv=sample)
 
 
 class Output(Conv2D):
@@ -78,16 +92,16 @@ class UNet2D(UNetSkeleton):
         f1e = initial_num_fmaps * fmap_growth
         f2e = initial_num_fmaps * fmap_growth**2
         encoders = [
-            Encoder(in_channels, f0e, 3, conv_type=conv_type, scale_factor=self.scale_factor[0]),
+            Encoder(in_channels, f0e, 3, conv_type=conv_type, scale_factor=0),
             # Encoder(in_channels, f0e, 3, conv_type=SpatialAttentionELU2D, scale_factor=self.scale_factor[0]),
-            Encoder(f0e, f1e, 3, conv_type=conv_type, scale_factor=self.scale_factor[1]),
-            Encoder(f1e, f2e, 3, conv_type=conv_type, scale_factor=self.scale_factor[2])
+            Encoder(f0e, f1e, 3, conv_type=conv_type, scale_factor=self.scale_factor[0]),
+            Encoder(f1e, f2e, 3, conv_type=conv_type, scale_factor=self.scale_factor[1])
         ]
 
         # Build base
         # number of base output feature maps
         f0b = initial_num_fmaps * fmap_growth**3
-        base = Base(f2e, f0b, 3, conv_type=conv_type)
+        base = Base(f2e, f0b, 3, conv_type=conv_type, scale_factor=self.scale_factor[2])
         # base = Base(f2e, f0b, 3, conv_type=SpatialAttentionELU2D)
 
         # Build decoders
@@ -95,10 +109,10 @@ class UNet2D(UNetSkeleton):
         f1d = initial_num_fmaps * fmap_growth
         f0d = initial_num_fmaps
         decoders = [
-            Decoder(f0b + f2e, f2d, 3, conv_type=conv_type, scale_factor=self.scale_factor[2]),
+            Decoder(f0b + f2e, f2d, 3, conv_type=conv_type, scale_factor=self.scale_factor[1]),
             # Decoder(f0b + f2e, f2d, 3, conv_type=SpatialAttentionELU2D, scale_factor=self.scale_factor[2]),
-            Decoder(f2d + f1e, f1d, 3, conv_type=conv_type, scale_factor=self.scale_factor[1]),
-            Decoder(f1d + f0e, f0d, 3, conv_type=conv_type, scale_factor=self.scale_factor[0])
+            Decoder(f2d + f1e, f1d, 3, conv_type=conv_type, scale_factor=self.scale_factor[2]),
+            Decoder(f1d + f0e, f0d, 3, conv_type=conv_type, scale_factor=0)
         ]
 
         # Build output
