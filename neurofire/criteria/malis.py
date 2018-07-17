@@ -25,11 +25,14 @@ class MalisLoss(Function):
             self.offsets = [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]
 
     def forward(self, input_, target):
+        print("Malis forward pass")
         input_ = input_.detach()
         # TODO for multi-gpu training we probably need to remember the cuda devices here
         if input_.is_cuda:
             input_ = input_.cpu()
             is_cuda = True
+        else:
+            is_cuda = False
         if target.is_cuda:
             target = target.cpu()
         input_ = input_.numpy()
@@ -49,11 +52,14 @@ class MalisLoss(Function):
             # TODO for multi-gpu training we probably need to specify the cuda devices
             self.save_for_backward(torch.from_numpy(gradients).cuda())
         else:
+            print("Saving for backward pass")
             self.save_for_backward(torch.from_numpy(gradients))
 
         # TODO in the old malis code, we return the gradients here, I don't get why
+        print("Malis forward pass done")
         return torch.tensor(sum(loss) / n_batches)
 
     def backward(self, grad_output):
+        print("Malis backward pass")
         gradients, = self.saved_tensors
         return gradients, None
