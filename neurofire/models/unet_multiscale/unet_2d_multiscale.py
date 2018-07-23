@@ -100,6 +100,7 @@ class UNet2DMultiscale(UNetSkeletonMultiscale):
             reshape_to_3d = False
         output = super(UNet2DMultiscale, self).forward(input_)
         if reshape_to_3d:
-            b, c, _0, _1 = list(output.size())
-            output = output.view(b, c, 1, _0, _1)
+            outsize = [list(out.size()) for out in output]
+            output = [out.view(osize[0], osize[1], 1, osize[2], osize[3])
+                      for out, osize in zip(output, outsize)]
         return output
