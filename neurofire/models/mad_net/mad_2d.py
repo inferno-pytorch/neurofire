@@ -91,6 +91,15 @@ class MAD2D(nn.Module):
         # - new, different spatial attention mechanism ?
 
     def forward(self, x):
+        # some loaders are usually 3D, so we reshape if necessary
+        if x.dim() == 5:
+            reshape_to_3d = True
+            b, c, _0, _1, _2 = list(x.size())
+            assert _0 == 1, "%i" % _0
+            x = x.view(b, c * _0, _1, _2)
+        else:
+            reshape_to_3d = False
+
         # apply convolutions and pool
         conv0 = self.block0(x)
         conv1 = self.block1(self.pool0(conv0))
@@ -116,9 +125,14 @@ class MAD2D(nn.Module):
 
         # TODO more clever alternative ?!
         # out = ''
-
         activation = F.sigmoid
+        outputs = [activation(out), activation(out0),
+                   activation(out1), activation(out2),
+                   activation(out3), activation(out4)]
+
+        if reshape_to_3d:
+            outsize = [list(out.size()) for out in outputs]
+            outputs = [out.view(osize[0], osize[1], 1, osize[2], osize[3])
+                       for out, osize in zip(outputs, outsize)]
         # print("Net output sizes:", out.size(), out0.size(), out1.size())
-        return (activation(out), activation(out0),
-                activation(out1), activation(out2),
-                activation(out3), activation(out4))
+        return outputs
