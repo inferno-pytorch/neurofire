@@ -18,6 +18,8 @@ from .hed.m2fcn import M2FCN
 
 from .mad_net.mad_2d import MAD2D
 
+from .wnet.wnet_2d import WNet2D
+
 
 def get_model(name):
     assert name in globals(), "Model not found."
