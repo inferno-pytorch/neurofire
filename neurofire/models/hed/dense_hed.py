@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from inferno.extensions.layers.convolutional import ConvELU2D, ConvELU3D
 from inferno.extensions.layers.convolutional import Conv2D, Conv3D
 from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsample
-from .hed2 import DefaultHEDBlock, DefaultHEDBlock3D, Upsampling3d
+from .hed import DefaultHEDBlock, DefaultHEDBlock3D, Upsampling3d
 
 
 # dense block
