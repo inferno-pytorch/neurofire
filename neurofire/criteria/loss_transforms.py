@@ -189,3 +189,19 @@ class InvertPrediction(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         return 1. - prediction, target
+
+
+class RemoveIgnoreLabel(Transform):
+    def __init__(self, ignore_label=0, **super_kwargs):
+        super(RemoveIgnoreLabel, self).__init__(**super_kwargs)
+        assert ignore_label == 0, "Only ignore label 0 is supported so far"
+        self.ignore_label = ignore_label
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        # for now, we just increase the target by 1
+        # in the general case, we should check if we have the ignore label
+        # and then replace it
+        target += 1
+        return prediction, target
