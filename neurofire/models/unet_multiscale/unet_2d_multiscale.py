@@ -34,10 +34,15 @@ class UNet2DMultiscale(UNetSkeletonMultiscale):
         self.scale_factor = [scale_factor] * 3 if isinstance(scale_factor, int) else scale_factor
         assert len(self.scale_factor) == 3
         assert all(isinstance(sfactor, int) for sfactor in self.scale_factor)
+        assert isinstance(out_channels, (list, int, tuple))
+        if isinstance(out_channels, int):
+            out_channels = 4 * [out_channels]
+        else:
+            assert len(out_channels) == 4
 
         # Set attributes
         self.in_channels = in_channels
-        self.out_channels = out_channels
+        self.out_channels = out_channels[0]
 
         # Build encoders with proper number of feature maps
         # number of feature maps for the encoders
@@ -63,23 +68,23 @@ class UNet2DMultiscale(UNetSkeletonMultiscale):
         # NOTE: We need extra samplers for the multi-scale stuff here,
         # so we don't sample in the decoders
         decoders = [
-            Decoder(f0b + f2e + out_channels, f2d, 3, conv_type=conv_type, scale_factor=0),
-            Decoder(f2d + f1e + out_channels, f1d, 3, conv_type=conv_type, scale_factor=0),
-            Decoder(f1d + f0e + out_channels, f0d, 3, conv_type=conv_type, scale_factor=0)
+            Decoder(f0b + f2e + out_channels[3], f2d, 3, conv_type=conv_type, scale_factor=0),
+            Decoder(f2d + f1e + out_channels[2], f1d, 3, conv_type=conv_type, scale_factor=0),
+            Decoder(f1d + f0e + out_channels[1], f0d, 3, conv_type=conv_type, scale_factor=0)
         ]
 
         samplers = [nn.Upsample(scale_factor=sf) for sf in reversed(self.scale_factor)]
 
         # Build decoders
-        output_0 = Output(f0d, out_channels, 3)
-        output_1 = Output(f1d, out_channels, 3)
-        output_2 = Output(f2d, out_channels, 3)
-        output_3 = Output(f0b, out_channels, 3)
+        output_0 = Output(f0d, out_channels[0], 3)
+        output_1 = Output(f1d, out_channels[1], 3)
+        output_2 = Output(f2d, out_channels[2], 3)
+        output_3 = Output(f0b, out_channels[3], 3)
         predictors = [output_0, output_1, output_2, output_3]
 
         # Parse final activation
         if final_activation == 'auto':
-            final_activation = nn.Sigmoid() if out_channels == 1 else nn.Softmax2d()
+            final_activation = nn.Sigmoid() if self.out_channels == 1 else nn.Softmax2d()
 
         # Build the architecture
         super(UNet2DMultiscale, self).__init__(encoders=encoders,
