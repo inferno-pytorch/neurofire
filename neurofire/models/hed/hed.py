@@ -77,7 +77,8 @@ class HED(nn.Module):
                  scale_factor=2,
                  block_type_key='default',
                  output_type_key='default',
-                 sampling_type_key='default'):
+                 sampling_type_key='default',
+                 rescale_outputs=True):
 
         # scale factors can be list or single value
         assert isinstance(scale_factor, (int, list, tuple))
@@ -150,6 +151,7 @@ class HED(nn.Module):
         self.upsample1 = sample_type1[1](scale_factor=self.scale_factor[1])
         self.upsample2 = sample_type2[1](scale_factor=self.scale_factor[2])
         self.upsample3 = sample_type3[1](scale_factor=self.scale_factor[3])
+        self.rescale_outputs = rescale_outputs
 
     def forward(self, x):
 
@@ -168,17 +170,38 @@ class HED(nn.Module):
         conv4 = self.pool3(conv3)
         conv4 = self.conv4(conv4)
 
-        # make side output
-        # NOTE we may have different pooling schemes, so we need to apply
-        # all the samplers in a chaine dfashil
-        out0 = self.out0(conv0)
-        out1 = self.upsample0(self.out1(conv1))
-        out2 = self.upsample1(self.upsample0(self.out2(conv2)))
-        out3 = self.upsample2(self.upsample1(self.upsample0(self.out3(conv3))))
-        out4 = self.upsample3(self.upsample2(self.upsample1(self.upsample0(self.out4(conv4)))))
+        if self.rescale_outputs:
 
-        # make fusion output
-        out5 = self.out5(torch.cat((out0, out1, out2, out3, out4), 1))
+            # make side output
+            # NOTE we may have different pooling schemes, so we need to apply
+            # all the samplers in a chain
+            out0 = self.out0(conv0)
+            out1 = self.upsample0(self.out1(conv1))
+            out2 = self.upsample1(self.upsample0(self.out2(conv2)))
+            out3 = self.upsample2(self.upsample1(self.upsample0(self.out3(conv3))))
+            out4 = self.upsample3(self.upsample2(self.upsample1(self.upsample0(self.out4(conv4)))))
+
+            # make fusion output
+            out5 = self.out5(torch.cat((out0, out1, out2, out3, out4), 1))
+
+        else:
+
+            # make side output
+            # NOTE we may have different pooling schemes, so we need to apply
+            # all the samplers in a chain
+            out0 = self.out0(conv0)
+            out1 = self.out1(conv1)
+            out2 = self.out2(conv2)
+            out3 = self.out3(conv3)
+            out4 = self.out4(conv4)
+
+            upsampled1 = self.upsample0(out1)
+            upsampled2 = self.upsample1(self.upsample0(out2))
+            upsampled3 = self.upsample2(self.upsample1(self.upsample0(out3)))
+            upsampled4 = self.upsample3(self.upsample2(self.upsample1(self.upsample0(out4))))
+
+            # make fusion output
+            out5 = self.out5(torch.cat((out0, upsampled1, upsampled2, upsampled3, upsampled4), 1))
 
         # apply activations
         # TODO enable different activations
@@ -190,4 +213,4 @@ class HED(nn.Module):
         out5 = F.sigmoid(out5)
 
         # we return first, because it is usually the one used for stuff
-        return out5, out4, out3, out2, out1, out0
+        return out5, out0, out1, out2, out3, out4
