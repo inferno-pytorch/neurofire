@@ -18,6 +18,8 @@ from .mad_net.mad_2d import MAD2D
 
 from .wnet.wnet_2d import WNet2D
 
+from .wnet_multiscale.wnet_2d_multiscale import WNet2DMultiscale
+
 
 def get_model(name):
     assert name in globals(), "Model not found."

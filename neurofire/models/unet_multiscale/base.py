@@ -48,9 +48,8 @@ class UNetSkeletonMultiscale(nn.Module):
             x = encoder(x)
             encoder_out.append(x)
 
-        outputs = []
         x = self.base(x)
-        outputs.append(self.predictors[-1](x))
+        outputs = [self.predictors[-1](x)]
 
         # apply decoders
         max_level = len(self.decoders) - 1
