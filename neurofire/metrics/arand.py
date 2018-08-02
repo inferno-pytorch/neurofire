@@ -8,7 +8,7 @@ try:
     import affogato
     HAVE_AFFOGATO = True
 except ImportError as e:
-    HAVE_AFFOGATO = True
+    HAVE_AFFOGATO = False
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
