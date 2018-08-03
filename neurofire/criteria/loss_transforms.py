@@ -42,7 +42,7 @@ class RemoveSegmentationFromTarget(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         # FIXME somentimes the batch dim is missing !!!
-        if prediction.dim() == 3:
+        if prediction.dim() == 3 or (prediction.dim() == 4 and prediction.size(0) != 1):
             return prediction, target[1:]
         else:
             return prediction, target[:, 1:]
@@ -55,10 +55,14 @@ class ApplyAndRemoveMask(Transform):
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
+
         # FIXME sometimes there is the batch dim missing
-        if prediction.dim() == 3:
+        if prediction.dim() == 3 or (prediction.dim() == 4 and prediction.size(0) != 1):
             prediction = prediction[None]
+        if target.dim() == 3 or (target.dim() == 4 and target.size(0) != 1):
             target = target[None]
+        # print(target.shape, prediction.shape)
+
         # validate the prediction
         assert prediction.dim() in [4, 5], prediction.dim()
         assert target.dim() == prediction.dim(), "%i, %i" % (target.dim(), prediction.dim())

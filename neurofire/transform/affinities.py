@@ -64,6 +64,10 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # We might want to carry the segmentation along for validation.
         # If this is the case, we insert it before the targets.
         if self.retain_segmentation:
+            # print(tensor.shape, output.shape)
+            # FIXME sometiems batch dim is missing ....
+            if tensor.ndim == 3 and tensor.shape[0] > 1:
+                tensor = tensor[None]
             output = np.concatenate((tensor.astype(self.dtype, copy=False), output),
                                     axis=0)
 
