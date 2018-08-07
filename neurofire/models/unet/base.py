@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import warnings
 
 
 class Xcoder(nn.Module):
@@ -29,7 +30,10 @@ class Xcoder(nn.Module):
         input_ = input_ if self.pre_conv is None else self.pre_conv(input_)
         out = self.conv1(input_)
         out = self.conv2(out)
-        out = out if self.post_conv is None else self.post_conv(out)
+        with warnings.catch_warnings():
+            # Ignore warning about deprecated Upsample in pytorch 0.4.1+
+            warnings.simplefilter('ignore')
+            out = out if self.post_conv is None else self.post_conv(out)
         return out
 
 
