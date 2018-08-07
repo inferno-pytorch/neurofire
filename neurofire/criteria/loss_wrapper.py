@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from inferno.utils.python_utils import is_listlike
 from .loss_transforms import MaskTransitionToIgnoreLabel
+import torch
 
 
 class BalanceAffinities(object):
@@ -72,7 +73,7 @@ class LossWrapper(nn.Module):
             assert callable(weight_function)
         self.weight_function = weight_function
 
-    def forward(self, prediction, target):
+    def forward(self, prediction: torch.Tensor, target: torch.Tensor):
         # calculate the weight based on prediction and target
         if self.weight_function is not None:
             weight = self.weight_function(prediction, target)
