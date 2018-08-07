@@ -5,10 +5,11 @@ from ..criteria.multi_scale_loss import Downsampler
 from .segmentation import DtypeMapping
 
 try:
-    import affogato
+    from affogato.affinities import compute_affinities
     HAVE_AFFOGATO = True
 except ImportError as e:
     HAVE_AFFOGATO = False
+    compute_affinities = None
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
@@ -41,15 +42,16 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         self.retain_segmentation = retain_segmentation
         # self.add_singleton_channel_dimension = add_singleton_channel_dimension
 
-    def tensor_function(self, tensor):
-        from affogato.affinities import compute_affinities
+    def volume_function(self, tensor):
+        # tensor.shape = (Z, Y, X)
         # need to cast tensor to np array ?!
         if self.ignore_label is not None:
-            output, mask = compute_affinities(tensor.squeeze(), self.offsets,
+            # output.shape = (C, Z, Y, X)
+            output, mask = compute_affinities(tensor, self.offsets,
                                               ignore_label=self.ignore_label,
                                               have_ignore_label=True)
         else:
-            output, mask = compute_affinities(tensor.squeeze(), self.offsets)
+            output, mask = compute_affinities(tensor, self.offsets)
 
         # Cast to be sure
         if not output.dtype == self.dtype:
@@ -66,11 +68,11 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         if self.retain_segmentation:
             # print(tensor.shape, output.shape)
             # FIXME sometiems batch dim is missing ....
-            if tensor.ndim == 3 and tensor.shape[0] > 1:
-                tensor = tensor[None]
-            output = np.concatenate((tensor.astype(self.dtype, copy=False), output),
+            # if tensor.ndim == 3 and tensor.shape[0] > 1:
+            #     tensor = tensor[None]
+            # Add a channel axis to tensor to make it (C, Z, Y, X) before cating to output
+            output = np.concatenate((tensor[None].astype(self.dtype, copy=False), output),
                                     axis=0)
-
         return output
 
 
