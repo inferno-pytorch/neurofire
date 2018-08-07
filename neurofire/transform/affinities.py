@@ -5,10 +5,11 @@ from ..criteria.multi_scale_loss import Downsampler
 from .segmentation import DtypeMapping
 
 try:
-    import affogato
+    from affogato.affinities import compute_affinities
     HAVE_AFFOGATO = True
 except ImportError as e:
     HAVE_AFFOGATO = False
+    compute_affinities = None
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
 
 
@@ -42,7 +43,6 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # self.add_singleton_channel_dimension = add_singleton_channel_dimension
 
     def tensor_function(self, tensor):
-        from affogato.affinities import compute_affinities
         # need to cast tensor to np array ?!
         if self.ignore_label is not None:
             output, mask = compute_affinities(tensor.squeeze(), self.offsets,
