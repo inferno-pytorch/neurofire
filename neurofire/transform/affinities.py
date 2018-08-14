@@ -129,8 +129,11 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
             # We might want to carry the segmentation along for validation.
             # If this is the case, we insert it before the targets for the original scale.
             if self.retain_segmentation:
-                output = np.concatenate((self.downsamplers[ii](tensor.astype(self.dtype, copy=False)),
-                                         output), axis=0)
+                ds_target = self.downsamplers[ii](tensor.astype(self.dtype, copy=False))
+                if ds_target.ndim != output.ndim:
+                    assert ds_target.ndim == output.ndim - 1
+                    ds_target = ds_target[None]
+                output = np.concatenate((ds_target, output), axis=0)
             outputs.append(output)
 
         return outputs

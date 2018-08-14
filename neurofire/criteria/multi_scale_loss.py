@@ -45,24 +45,31 @@ class MultiScaleLoss(nn.Module):
 
 # TODO
 # - this should go somewhere else (inferno.extensions)
-# - should check if some existing torch functionality can be used
+# - should check if some existing torch functionality can be used (interpolation nearest)
 class Downsampler(object):
     def __init__(self, scale_factor, ndim=None):
         assert isinstance(scale_factor, (list, int, tuple))
         if isinstance(scale_factor, (list, tuple)):
             assert all(isinstance(sf, int) for sf in scale_factor)
             if ndim is None:
-                ndim = len(scale_factor)
+                self.ndim = len(scale_factor)
             else:
                 assert len(scale_factor) == ndim
+                self.ndim = ndim
             self.scale_factor = scale_factor
         else:
             assert ndim is not None, "Cannot infer dimension from scalar downsample factor"
-            self.scale_factor = 3 * (scale_factor,)
-        self.ds_slice = (slice(None),) + tuple(slice(None, None, sf) for sf in scale_factor)
+            self.ndim = ndim
+            self.scale_factor = self.ndim * (scale_factor,)
+        self.ds_slice = tuple(slice(None, None, sf) for sf in scale_factor)
 
     def __call__(self, input_):
-        return input_[self.ds_slice]
+        if input_.ndim > self.ndim:
+            assert input_.ndim == self.ndim + 1, "%i, %i" % (input_.ndim, self.ndim)
+            ds_slice = (slice(None),) + self.ds_slice
+        else:
+            ds_slice = self.ds_slice
+        return input_[ds_slice]
 
 
 class MultiScaleLossMaxPool(MultiScaleLoss):
