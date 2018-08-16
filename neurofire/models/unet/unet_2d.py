@@ -1,5 +1,6 @@
 import torch.nn as nn
 from inferno.extensions.layers.convolutional import ConvELU2D, Conv2D, BNReLUConv2D
+from inferno.extensions.layers.sampling import Upsample
 from .base import UNetSkeleton, Xcoder
 # from skunkworks.models.attention import SpatialAttentionELU2D
 
@@ -25,7 +26,7 @@ class Encoder(Xcoder):
 class Decoder(Xcoder):
     def __init__(self, in_channels, out_channels, kernel_size, conv_type=ConvELU2D, scale_factor=2):
         if scale_factor > 0:
-            sample = nn.Upsample(scale_factor=scale_factor)
+            sample = Upsample(scale_factor=scale_factor)
         else:
             sample = None
         super(Decoder, self).__init__(in_channels, out_channels, kernel_size,
@@ -38,7 +39,7 @@ class Base(Xcoder):
         pool = nn.MaxPool2d(kernel_size=1 + scale_factor,
                             stride=scale_factor,
                             padding=1)
-        sample = nn.Upsample(scale_factor=scale_factor)
+        sample = Upsample(scale_factor=scale_factor)
         super(Base, self).__init__(in_channels, out_channels, kernel_size,
                                    conv_type=conv_type,
                                    pre_conv=pool,

@@ -1,7 +1,7 @@
 import torch.nn as nn
 from .base import UNetSkeleton, Xcoder
 from inferno.extensions.layers.convolutional import ConvELU3D, Conv3D, BNReLUConv3D
-from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsample
+from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsample, Upsample
 
 
 # small helper functions
@@ -35,7 +35,7 @@ def get_sampler(scale_factor):
         sampler = AnisotropicUpsample(scale_factor=scale_factor[1])
     else:
         if scale_factor > 0:
-            sampler = nn.Upsample(scale_factor=scale_factor)
+            sampler = Upsample(scale_factor=scale_factor)
         else:
             sampler = None
     return sampler

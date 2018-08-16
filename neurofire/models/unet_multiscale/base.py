@@ -63,7 +63,3 @@ class UNetSkeletonMultiscale(nn.Module):
 
         outputs = tuple(self.apply_act(out) for out in reversed(outputs))
         return outputs
-        # if self._return_inner_feature_layers:
-        #     return (out0, out1, out2, out3), (e0, e1, e2, b, d2, d1, d0)
-        # else:
-        #     return out0, out1, out2, out3

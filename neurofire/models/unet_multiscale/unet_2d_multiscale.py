@@ -1,4 +1,5 @@
 import torch.nn as nn
+from inferno.extensions.layers.sampling import Upsample
 from .base import UNetSkeletonMultiscale
 from ..unet.unet_2d import Encoder, Decoder, Output, CONV_TYPES
 
@@ -73,7 +74,7 @@ class UNet2DMultiscale(UNetSkeletonMultiscale):
             Decoder(f1d + f0e + out_channels[1], f0d, 3, conv_type=conv_type, scale_factor=0)
         ]
 
-        samplers = [nn.Upsample(scale_factor=sf) for sf in reversed(self.scale_factor)]
+        samplers = [Upsample(scale_factor=sf) for sf in reversed(self.scale_factor)]
 
         # Build outputs
         output_0 = Output(f0d, out_channels[0], 3)
