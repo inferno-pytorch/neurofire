@@ -47,9 +47,8 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandError):
         # import h5py
         # with h5py.File('val_input.h5', 'w') as f:
         #     f.create_dataset('data', data=affinity_batch)
-        connected_components = np.array([connected_components(batch[:dim], thresh)[0]
-                                         for batch in affinity_batch])
-        return torch.from_numpy(connected_components[:, None].astype('int32'))
+        ccs = np.array([connected_components(batch[:dim], thresh)[0] for batch in affinity_batch])
+        return torch.from_numpy(ccs[:, None].astype('int32'))
 
     def forward(self, prediction, target):
         # iterate over the different thresholds we have

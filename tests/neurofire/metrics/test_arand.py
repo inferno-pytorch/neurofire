@@ -21,12 +21,21 @@ class TestArand(unittest.TestCase):
         groundtruth_batch_tensor = torch.from_numpy(groundtruth_batch)
         return affinity_batch_tensor, groundtruth_batch_tensor
 
-    def test_arand_error_with_connected_components_on_affinities(self):
+    def test_arand_error_from_connected_components_on_affinities(self):
         from neurofire.metrics.arand import ArandErrorFromConnectedComponentsOnAffinities
         affinity, groundtruth = self.build_input()
         arand = ArandErrorFromConnectedComponentsOnAffinities(thresholds=[0.5, 0.8],
-                                                              invert_affinities=False)
+                                                              invert_affinities=True)
         error = arand(affinity, groundtruth)
+        self.assertEqual(error, 0.)
+
+    def test_arand_error_from_connected_components(self):
+        from neurofire.metrics.arand import ArandErrorFromConnectedComponents
+        input_, groundtruth = self.build_input()
+        input_ = input_[:, 0:1]
+        arand = ArandErrorFromConnectedComponents(thresholds=[0.5, 0.8],
+                                                              invert_input=True)
+        error = arand(input_, groundtruth)
         self.assertEqual(error, 0.)
 
 
