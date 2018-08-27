@@ -58,21 +58,18 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandFromSegmentationBase):
         self.invert_affinities = invert_affinities
         self.normalize_affinities = normalize_affinities
 
-    def input_to_segmentation(self, affinity_batch, thresh):
+    def input_to_segmentation(self, input_batch, thresh):
         dim = input_batch.ndim - 2
         # if specified, invert and / or normalize the affinities
         if self.invert_affinities:
-            affinity_batch = 1. - affinity_batch
+            input_batch = 1. - input_batch
         if self.normalize_affinities:
-            affinity_batch = affinity_batch / affinity_batch.max()
+            input_batch = input_batch / input_batch.max()
 
-        # FIXME sometimes this segfaults, but I can't reproduce the segfault (with exactly the
-        # same input !!!!) outside of training
-        # import h5py
-        # with h5py.File('val_input.h5', 'w') as f:
-        #     f.create_dataset('data', data=affinity_batch)
-
-        ccs = np.array([connected_components(batch[:dim], thresh)[0] for batch in affinity_batch])
+        if np.isnan(input_batch).any():
+            raise RuntimeError("Have nan affinities!")
+        # Compute the segmentation via connected components on the affinities
+        ccs = np.array([connected_components(batch[:dim], thresh)[0] for batch in input_batch])
         # NOTE: we add a singleton channel axis here, which is expected by the arand metrics
         return torch.from_numpy(ccs[:, None].astype('int32'))
 
@@ -94,7 +91,7 @@ class ArandErrorFromConnectedComponents(ArandFromSegmentationBase):
         if self.invert_input:
             input_batch = 1. - input_batch
         if self.normalize_input:
-            input_barch -= input_match.min()
+            input_batch -= input_batch.min()
             input_batch = input_batch / input_batch.max()
 
         if input_batch.shape[1] > 1:

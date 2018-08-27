@@ -42,11 +42,16 @@ class MutexMalisLoss(Function):
         target = target.numpy()
         assert input_.shape[1] == len(self.offsets), "%i, %i" % (input_.shape[1], self.ndim)
         assert input_.shape[2:] == target.shape[2:], "%s, %s" % (str(input_.shape), str(target.shape))
+
+        normalisation = np.prod(target.shape[1:])
+
         gradients, loss = [], []
         n_batches = input_.shape[0]
         for batch in range(n_batches):
             ll, gg, _, _ = affl.mutex_malis(input_[batch], target[batch, 0], self.offsets,
                                             self.number_of_attractive_channels)
+            # TODO move normalisation somewhere else
+            gg /= normalisation
             loss.append(ll)
             gradients.append(gg[None])
         gradients = np.concatenate(gradients, axis=0)
