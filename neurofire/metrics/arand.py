@@ -6,7 +6,7 @@ import inferno.utils.python_utils as pyu
 from inferno.extensions.metrics.arand import ArandError
 
 try:
-    from affogato.segmentation import connected_components
+    from affogato.segmentation import connected_components, compute_mws_segmentation
     HAVE_AFFOGATO = True
 except ImportError as e:
     HAVE_AFFOGATO = False
@@ -43,8 +43,8 @@ class ArandFromSegmentationBase(ArandError):
         for param in self.parameters:
             # compute the mean arand erros for all batches for the given threshold
             gt_seg = target[:, 0:1]
-            cc_seg = self.input_to_segmentation(input_batch, param)
-            arand_errors.append(super(ArandFromSegmentationBase, self).forward(cc_seg, gt_seg))
+            seg = self.input_to_segmentation(input_batch, param)
+            arand_errors.append(super(ArandFromSegmentationBase, self).forward(seg, gt_seg))
         # return the best arand errror
         return min(arand_errors)
 
@@ -65,9 +65,6 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandFromSegmentationBase):
             input_batch = 1. - input_batch
         if self.normalize_affinities:
             input_batch = input_batch / input_batch.max()
-
-        if np.isnan(input_batch).any():
-            raise RuntimeError("Have nan affinities!")
         # Compute the segmentation via connected components on the affinities
         ccs = np.array([connected_components(batch[:dim], thresh)[0] for batch in input_batch])
         # NOTE: we add a singleton channel axis here, which is expected by the arand metrics
@@ -103,3 +100,33 @@ class ArandErrorFromConnectedComponents(ArandFromSegmentationBase):
         ccs = np.array([vigra.analysis.labelMultiArray(threshd) for threshd in thresholded])
         # NOTE: we add a singleton channel axis here, which is expected by the arand metrics
         return torch.from_numpy(ccs[:, None].astype('int32'))
+
+
+class ArandErrorFromMWS(ArandFromSegmentationBase):
+
+    def __init__(self, offsets, strides=None, randomize_strides=None,
+                 average_slices=True):
+        assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
+        # NOTE we give a trivial parameter list, to be consistent with the base api
+        super(ArandErrorFromMWS, self).__init__([None], average_slices=average_slices)
+        # TODO validate input
+        self.offsets = offsets
+        self.dim = len(offsets[0])
+        self.strides = strides
+        self.randomize_strides = randomize_strides
+
+    def _run_mws(self, input_, param=None):
+        input_[:self.dim] *= -1
+        input_[:self.dim] += 1
+        return compute_mws_segmentation(input_, self.offsets,
+                                        number_of_attractive_channels=self.dim,
+                                        strides=self.strides,
+                                        randomize_strides=self.randomize_strides)
+
+    # TODO add additional parameter ???
+    def input_to_segmentation(self, input_batch, param=None):
+        dim = input_batch.ndim - 2
+        assert dim == self.dim
+        seg = np.array([self._run_mws(batch, param) for batch in input_batch])
+        # NOTE: we add a singleton channel axis here, which is expected by the arand metrics
+        return torch.from_numpy(seg[:, None].astype('int32'))
