@@ -1,5 +1,6 @@
 import numbers
 
+import numpy as np
 import torch
 from torch.autograd import Variable
 from torch.nn.functional import conv2d, conv3d
@@ -197,4 +198,66 @@ class RemoveIgnoreLabel(Transform):
         # in the general case, we should check if we have the ignore label
         # and then replace it
         target += 1
+        return prediction, target
+
+
+class AddNoise(Transform):
+    """ Add noise to the inputs before applying loss
+    """
+    def __init__(self, apply_='prediction', noise_type='uniform', **noise_kwargs):
+        super(AddNoise, self).__init__()
+        assert apply_ in ('target', 'prediction', 'both'), apply_
+        self.apply_ = apply_
+        assert noise_type in ('gaussian', 'uniform', 'gumbel'), noise_type
+        if noise_type == 'gaussian':
+            self._noise = self._gaussian_noise
+            self.mean = noise_kwargs.get('mean', 0)
+            self.std = noise_kwargs.get('std', 1)
+        elif noise_type == 'uniform':
+            self._noise = self._uniform_noise
+            self.min = noise_kwargs.get('min', 0)
+            self.max = noise_kwargs.get('max', 1)
+        elif noise_type == 'gumbel':
+            self._noise = self._gumbel_noise
+            self.loc = noise_kwargs.get('loc', 0)
+            self.scale = noise_kwargs.get('scale', 1)
+
+    @staticmethod
+    def _scale(input_, min_, max_):
+        input_ = (input_ - input_.min())
+        input_ = input_ / input_.max()
+        input_ = (max_ - min_) * input_ + min_
+        return input_
+
+    def _uniform_noise(self, input_,):
+        imin, imax = input_.min(), input_.max()
+        # TODO do we need the new empty ???
+        noise = input_.new_empty(size=input_.size()).uniform_(self.min, self.max)
+        input_ = input_ + noise
+        input_ = self._scale(input_, imin, imax)
+        return input_
+
+    def _gaussian_noise(self, input_,):
+        imin, imax = input_.min(), input_.max()
+        # TODO do we need the new empty ???
+        noise = input_.new_empty(size=input_.size()).normal_(self.mean, self.std)
+        input_ = input_ + noise
+        input_ = self._scale(input_, imin, imax)
+        return input_
+
+    def _gumbel_noise(self, input_,):
+        imin, imax = input_.min(), input_.max()
+        noise = np.random.gumbel(loc=self.loc, scale=self.scale,
+                                 size=input_.shape)
+        input_ = input_ + torch.from_numpy(noise)
+        input_ = self._scale(input_, imin, imax)
+        return input_
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        if self.apply_ in ('prediction', 'both'):
+            prediction = self._noise(prediction)
+        if self.apply_ in ('target', 'both'):
+            target = self._noise(target)
         return prediction, target

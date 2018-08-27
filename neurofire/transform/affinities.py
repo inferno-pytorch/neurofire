@@ -5,7 +5,7 @@ from ..criteria.multi_scale_loss import Downsampler
 from .segmentation import DtypeMapping
 
 try:
-    from affogato.affinities import compute_affinities
+    from affogato.affinities import compute_multiscale_affinities, compute_affinities
     HAVE_AFFOGATO = True
 except ImportError as e:
     HAVE_AFFOGATO = False
@@ -44,7 +44,11 @@ class Segmentation2Affinities(Transform, DtypeMapping):
 
     def volume_function(self, tensor):
         # tensor.shape = (Z, Y, X)
-        # need to cast tensor to np array ?!
+        # for 2 d input, we need singleton input
+        if self.dim == 2:
+            assert tensor.shape[0] == 1
+            tensor = tensor[0]
+
         if self.ignore_label is not None:
             # output.shape = (C, Z, Y, X)
             output, mask = compute_affinities(tensor, self.offsets,
@@ -66,10 +70,6 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         # We might want to carry the segmentation along for validation.
         # If this is the case, we insert it before the targets.
         if self.retain_segmentation:
-            # print(tensor.shape, output.shape)
-            # FIXME sometiems batch dim is missing ....
-            # if tensor.ndim == 3 and tensor.shape[0] > 1:
-            #     tensor = tensor[None]
             # Add a channel axis to tensor to make it (C, Z, Y, X) before cating to output
             output = np.concatenate((tensor[None].astype(self.dtype, copy=False), output),
                                     axis=0)
@@ -97,7 +97,11 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
             self.downsamplers = [Downsampler(bs) for bs in self.block_shapes]
 
     def tensor_function(self, tensor):
-        from affogato.affinities import compute_multiscale_affinities, compute_affinities
+        # for 2 d input, we need singleton input
+        if self.dim == 2:
+            assert tensor.shape[0] == 1
+            tensor = tensor[0]
+
         outputs = []
         for ii, bs in enumerate(self.block_shapes):
             # if the block shape is all ones, we can compute normal affinities
@@ -115,8 +119,10 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
                                                   have_ignore_label=False if self.ignore_label is None else True)
             else:
                 output, mask = compute_multiscale_affinities(tensor.squeeze().astype('uint64'), bs,
-                                                             ignore_label=0 if self.ignore_label is None else self.ignore_label,
-                                                             have_ignore_label=False if self.ignore_label is None else True)
+                                                             ignore_label=0 if self.ignore_label is None
+                                                             else self.ignore_label,
+                                                             have_ignore_label=False if self.ignore_label is None
+                                                             else True)
 
             # Cast to be sure
             if not output.dtype == self.dtype:

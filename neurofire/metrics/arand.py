@@ -54,7 +54,7 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandFromSegmentationBase):
     def __init__(self, thresholds=0.5, invert_affinities=False,
                  normalize_affinities=False, average_slices=True):
         assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
-        super(ArandFromSegmentationBase, self).__init__(thresholds, average_slices)
+        super(ArandErrorFromConnectedComponentsOnAffinities, self).__init__(thresholds, average_slices)
         self.invert_affinities = invert_affinities
         self.normalize_affinities = normalize_affinities
 
