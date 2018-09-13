@@ -34,10 +34,50 @@ class TestArand(unittest.TestCase):
         input_, groundtruth = self.build_input()
         input_ = input_[:, 0:1]
         arand = ArandErrorFromConnectedComponents(thresholds=[0.5, 0.8],
-                                                              invert_input=True)
+                                                  invert_input=True)
+        error = arand(input_, groundtruth)
+        self.assertEqual(error, 0.)
+
+    # TODO implement proper test, but need either 3d input or accept 2d data
+    def _test_arand_error_from_multicut(self):
+        from neurofire.metrics.arand import ArandErrorFromMulticut
+        input_, groundtruth = self.build_input()
+        arand = ArandErrorFromMulticut(dim=2)
         error = arand(input_, groundtruth)
         self.assertEqual(error, 0.)
 
 
+def visualize_cc():
+    import h5py
+    import vigra
+    from cremi_tools.viewer.volumina import view
+    thresh = .9
+    with h5py.File('/home/cpape/Work/data/isbi2012/isbi_train_offsetsV4_3d_meantda_damws2deval_final.h5') as f:
+        affs = f['data'][:, :5, :256, :256]
+    print(affs.shape)
+    affs = 1. - affs
+    thresholded = (np.mean(affs, axis=0) >= thresh).astype('uint8')
+    # cs = vigra.analysis.labelMultiArrayWithBackground(thresholded)
+    cs = vigra.analysis.labelMultiArray(thresholded)
+    view([affs.transpose((1, 2, 3, 0)), thresholded, cs])
+
+
+def visualize_mc():
+    import h5py
+    from cremi_tools.viewer.volumina import view
+    from neurofire.metrics.arand import ArandErrorFromMulticut
+    with h5py.File('/home/cpape/Work/data/isbi2012/isbi_train_offsetsV4_3d_meantda_damws2deval_final.h5') as f:
+        affs = f['data'][:, :10, :256, :256]
+    offsets = [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]
+    use_2d_ws = True
+    metrics = ArandErrorFromMulticut(use_2d_ws=use_2d_ws, offsets=offsets)
+    beta = .5
+    mc_seg = metrics.input_to_segmentation(affs[None], beta).numpy().squeeze()
+    assert mc_seg.shape == affs.shape[1:]
+    view([affs.transpose((1, 2, 3, 0)), mc_seg])
+
+
 if __name__ == '__main__':
+    # visualize_mc()
+    # visualize_cc()
     unittest.main()
