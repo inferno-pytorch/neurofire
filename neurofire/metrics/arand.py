@@ -83,6 +83,7 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandFromSegmentationBase):
         return torch.from_numpy(ccs[:, None].astype('int32'))
 
 
+class ArandErrorFromConnectedComponents(ArandFromSegmentationBase):
     def __init__(self, thresholds=0.5, invert_input=False,
                  average_input=False, normalize_input=False, average_slices=True):
         super(ArandErrorFromConnectedComponents, self).__init__(thresholds, average_slices=average_slices)
