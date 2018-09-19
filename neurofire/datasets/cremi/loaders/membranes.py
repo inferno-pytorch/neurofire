@@ -4,7 +4,7 @@ from inferno.io.transform.generic import Cast
 from inferno.utils import python_utils as pyu
 from ....transform.segmentation import Segmentation2Membranes
 from ....transform.segmentation import NegativeExponentialDistanceTransform
-from ....transform.segmentation import ConnectedComponents3D
+from ....transform.segmentation import ConnectedComponents3D, ConnectedComponents2D
 
 
 class MembraneVolume(HDF5VolumeLoader):
@@ -68,7 +68,7 @@ class AffinityVolume(MembraneVolume):
 
 class SegmentationVolume(HDF5VolumeLoader):
     def __init__(self, path, path_in_h5_dataset=None,
-                 data_slice=None, name=None, dtype='float32',
+                 data_slice=None, name=None, dtype='float32', apply_on_image=False,
                  **slicing_config):
         path_in_h5_dataset = path_in_h5_dataset if path_in_h5_dataset is not None else \
             '/volumes/labels/neuron_ids'
@@ -78,10 +78,15 @@ class SegmentationVolume(HDF5VolumeLoader):
 
         assert isinstance(dtype, str)
         self.dtype = dtype
+        self.apply_on_image = apply_on_image
         # Make transforms
         self.transforms = self.get_transforms()
 
     def get_transforms(self):
-        transforms = Compose(ConnectedComponents3D(label_segmentation=True),
+        if (self.apply_on_image):
+            transforms = Compose(ConnectedComponents2D(label_segmentation=True),
+                             Cast(self.dtype))
+        else:
+            transforms = Compose(ConnectedComponents3D(label_segmentation=True),
                              Cast(self.dtype))
         return transforms

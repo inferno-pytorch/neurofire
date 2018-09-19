@@ -101,7 +101,7 @@ class ConnectedComponents2D(Transform):
             raise NotImplementedError("Connected components is not supported without vigra "
                                       "if label_segmentation is set to True.")
         if self.label_segmentation:
-            connected_components = vigra.analysis.labelImageWithBackground(image)
+            connected_components = vigra.analysis.labelImageWithBackground(image.astype('uint32'))
         else:
             connected_components, _ = label(image)
         return connected_components
