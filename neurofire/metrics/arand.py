@@ -3,7 +3,12 @@ from concurrent import futures
 
 import numpy as np
 import torch
-import vigra  # TODO remove all vigra dependencies
+
+# TODO remove all vigra dependencies
+try:
+    import vigra
+except ImportError:
+    pass
 
 from scipy.ndimage.morphology import distance_transform_edt
 from skimage.morphology import label
