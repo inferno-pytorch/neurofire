@@ -80,6 +80,7 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
                                     axis=0)
         return output
 
+
 class Segmentation2Affinities(Segmentation2Affinities2or3D):
     def __init__(self, **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
@@ -88,6 +89,7 @@ class Segmentation2Affinities(Segmentation2Affinities2or3D):
         output = self.input_function(tensor)
         return output
 
+
 class Segmentation2Affinities2D(Segmentation2Affinities2or3D):
     def __init__(self, **super_kwargs):
         super(Segmentation2Affinities2D, self).__init__(**super_kwargs)
@@ -95,7 +97,8 @@ class Segmentation2Affinities2D(Segmentation2Affinities2or3D):
         assert tensor.ndim==2
         output = self.input_function(tensor)
         return output
-    
+
+
 class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
     def __init__(self, block_shapes, dtype='float32', ignore_label=None,
                  retain_mask=False, retain_segmentation=False,

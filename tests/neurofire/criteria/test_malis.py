@@ -4,6 +4,12 @@ import numpy as np
 import torch
 
 try:
+    import affogato
+    WITH_AFF = True
+except ImportError:
+    WITH_AFF = False
+
+try:
     from base_test import BaseTest
 except ImportError:
     from .base_test import BaseTest
@@ -11,6 +17,7 @@ except ImportError:
 
 class TestMalis(BaseTest):
 
+    @unittest.skipUnless(WITH_AFF, "Need affogato")
     def test_malis_3d(self):
         from neurofire.criteria.malis import MalisLoss
         seg = torch.from_numpy(self.make_segmentation(self.shape)[None, None])
@@ -27,6 +34,7 @@ class TestMalis(BaseTest):
         self.assertEqual(grads.shape, pred.shape)
         self.assertFalse(np.allclose(grads, 0))
 
+    @unittest.skipUnless(WITH_AFF, "Need affogato")
     def test_pickle(self):
         from neurofire.criteria.malis import MalisLoss
         m0 = MalisLoss(ndim=2)

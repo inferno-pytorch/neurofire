@@ -4,6 +4,12 @@ import numpy as np
 import torch
 
 try:
+    import affogato
+    WITH_AFF = True
+except ImportError:
+    WITH_AFF = False
+
+try:
     from base_test import BaseTest
 except ImportError:
     from .base_test import BaseTest
@@ -11,6 +17,7 @@ except ImportError:
 
 class TestMutexMalis(BaseTest):
 
+    @unittest.skipUnless(WITH_AFF, "Need affogato")
     def test_mutex_malis(self):
         from neurofire.criteria.mutex_malis import MutexMalisLoss
         seg = torch.from_numpy(self.make_segmentation(self.shape)[None, None])
@@ -29,7 +36,8 @@ class TestMutexMalis(BaseTest):
         self.assertEqual(grads.shape, pred.shape)
         self.assertFalse(np.allclose(grads, 0))
 
-    def _test_pickle(self):
+    @unittest.skipUnless(WITH_AFF, "Need affogato")
+    def test_pickle(self):
         from neurofire.criteria.malis import MalisLoss
         m0 = MalisLoss(ndim=2)
         p = pickle.dumps(m0)

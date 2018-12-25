@@ -3,20 +3,12 @@ import torch
 
 from scipy.ndimage import convolve
 from scipy.ndimage.morphology import distance_transform_edt
-from scipy.ndimage.measurements import label
+from skimage.morphology import label
 
 from inferno.io.transform import Transform
 
 import logging
 logger = logging.getLogger(__name__)
-
-try:
-    import vigra
-    with_vigra = True
-except ImportError:
-    logger.warn("Vigra was not found, connected components will not be available")
-    vigra = None
-    with_vigra = False
 
 
 class DtypeMapping(object):
@@ -82,55 +74,31 @@ class ConnectedComponents2D(Transform):
     """
     Apply connected components on segmentation in 2D.
     """
-    def __init__(self, label_segmentation=True, **super_kwargs):
+    def __init__(self, **super_kwargs):
         """
         Parameters
         ----------
-        label_segmentation : bool
-            Whether the input is a segmentation. If True (default), this computes a
-            connected components on both segmentation and binary images (instead of just binary
-            images, when this is set to False). However, this would require vigra as a dependency.
         super_kwargs : dict
             Keyword arguments to the super class.
         """
         super(ConnectedComponents2D, self).__init__(**super_kwargs)
-        self.label_segmentation = label_segmentation
 
     def image_function(self, image):
-        if not with_vigra and self.label_segmentation:
-            raise NotImplementedError("Connected components is not supported without vigra "
-                                      "if label_segmentation is set to True.")
-        if self.label_segmentation:
-            connected_components = vigra.analysis.labelImageWithBackground(image.astype('uint32'))
-        else:
-            connected_components, _ = label(image)
-        return connected_components
+        return label(image)
 
 
 class ConnectedComponents3D(Transform):
     """
     Apply connected components on segmentation in 3D.
     """
-    def __init__(self, label_segmentation=True, **super_kwargs):
+    def __init__(self, **super_kwargs):
         """
         Parameters
         ----------
-        label_segmentation : bool
-            Whether the input is a segmentation. If True (default), this computes a
-            connected components on both segmentation and binary images (instead of just binary
-            images, when this is set to False). However, this would require vigra as a dependency.
         super_kwargs : dict
             Keyword arguments to the super class.
         """
         super(ConnectedComponents3D, self).__init__(**super_kwargs)
-        self.label_segmentation = label_segmentation
 
     def volume_function(self, volume):
-        if not with_vigra and self.label_segmentation:
-            raise NotImplementedError("Connected components is not supported without vigra "
-                                      "if label_segmentation is set to True.")
-        if self.label_segmentation:
-            connected_components = vigra.analysis.labelVolumeWithBackground(volume.astype('uint32'))
-        else:
-            connected_components, _ = label(volume)
-        return connected_components
+        return label(volume)

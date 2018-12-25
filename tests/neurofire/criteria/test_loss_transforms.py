@@ -3,11 +3,14 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 
-# FIXME somehow, i can't get this to work
-# from torch.nn.modules.loss import CrossEntropyLoss
-
 from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
 from .base_test import BaseTest
+
+try:
+    import affogato
+    WITH_AFF = True
+except ImportError:
+    WITH_AFF = False
 
 
 class TestLossTransforms(BaseTest):
@@ -41,8 +44,6 @@ class TestLossTransforms(BaseTest):
         # masked parts are actually zero
 
         # apply cross entropy loss
-        # FIXME error with Cross Entropy
-        # criterium = CrossEntropyLoss()
         criterium = SorensenDiceLoss()
         loss = criterium(masked_prediction, target)
         loss.backward()
@@ -51,16 +52,17 @@ class TestLossTransforms(BaseTest):
         self.assertTrue((grads[ignore_mask] == 0).all())
         self.assertTrue((grads[np.logical_not(ignore_mask)] != 0).all())
 
+    @unittest.skipUnless(WITH_AFF, "need affogato")
     def test_transition_mask(self):
-        from neurofire.criteria.loss_transform import MaskTransitionToIgnoreLabel
-        from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
+        from neurofire.criteria.loss_transforms import MaskTransitionToIgnoreLabel
+        from neurofire.transform.segmentation import Segmentation2Affinities
 
         offsets = [(1, 0, 0), (0, 1, 0), (0, 0, 1),
                    (9, 0, 0), (0, 9, 0), (0, 0, 9),
                    (9, 4, 0), (4, 9, 0), (9, 0, 9)]
         trafo = MaskTransitionToIgnoreLabel(offsets, ignore_label=0)
-        aff_trafo = Segmentation2AffinitiesFromOffsets(3, offsets, retain_segmentation=True,
-                                                       add_singleton_channel_dimension=True)
+        aff_trafo = Segmentation2Affinities(offsets, retain_segmentation=True,
+                                            retain_mask=True)
 
         seg = self.make_segmentation_with_ignore(self.shape)
         ignore_mask = self.brute_force_transition_masking(seg, offsets)
@@ -77,8 +79,6 @@ class TestLossTransforms(BaseTest):
         self.assertTrue(np.allclose(target.data.numpy(), target_.data.numpy()))
 
         # apply cross entropy loss
-        # FIXME error with Cross Entropy
-        # criterium = CrossEntropyLoss()
         criterium = SorensenDiceLoss()
         target = target[:, 1:]
         self.assertEqual(target.size(), masked_prediction.size())

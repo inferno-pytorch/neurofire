@@ -2,9 +2,11 @@ from functools import partial
 from concurrent import futures
 
 import numpy as np
-import vigra
 import torch
+import vigra  # TODO remove all vigra dependencies
+
 from scipy.ndimage.morphology import distance_transform_edt
+from skimage.morphology import label
 
 import inferno.utils.python_utils as pyu
 from inferno.extensions.metrics.arand import ArandError
@@ -108,7 +110,7 @@ class ArandErrorFromConnectedComponents(ArandFromSegmentationBase):
             thresholded = (np.mean(input_batch[:, :dim], axis=1) >= thresh).astype('uint8')
         else:
             thresholded = (input_batch[:, 0] >= thresh).astype('uint8')
-        ccs = np.array([vigra.analysis.labelMultiArray(threshd) for threshd in thresholded])
+        ccs = np.array([label(threshd) for threshd in thresholded])
         # NOTE: we add a singleton channel axis here, which is expected by the arand metrics
         return torch.from_numpy(ccs[:, None].astype('int32'))
 
@@ -173,9 +175,11 @@ class ArandErrorFromMulticut(ArandFromSegmentationBase):
         if self.dt_sigma > 0.:
             dt = vigra.filters.gaussianSmoothing(dt, self.dt_sigma)
         if input_.ndim == 2:
-            seeds = vigra.analysis.localMaxima(dt, allowPlateaus=True, allowAtBorder=True, marker=np.nan)
+            seeds = vigra.analysis.localMaxima(dt, allowPlateaus=True,
+                                               allowAtBorder=True, marker=np.nan)
         else:
-            seeds = vigra.analysis.localMaxima3D(dt, allowPlateaus=True, allowAtBorder=True, marker=np.nan)
+            seeds = vigra.analysis.localMaxima3D(dt, allowPlateaus=True,
+                                                 allowAtBorder=True, marker=np.nan)
         seeds = vigra.analysis.labelMultiArrayWithBackground(np.isnan(seeds).view('uint8'))
         ws, max_id = vigra.analysis.watershedsNew(input_, seeds=seeds)
         if self.size_filter > 0:

@@ -2,6 +2,12 @@ import torch
 import numpy as np
 import unittest
 
+try:
+    import affogato
+    WITH_AFF = True
+except ImportError:
+    WITH_AFF = False
+
 
 class TestArand(unittest.TestCase):
     def build_input(self):
@@ -21,6 +27,7 @@ class TestArand(unittest.TestCase):
         groundtruth_batch_tensor = torch.from_numpy(groundtruth_batch)
         return affinity_batch_tensor, groundtruth_batch_tensor
 
+    @unittest.skipUnless(WITH_AFF, "Need affogato for unittest on affinities")
     def test_arand_error_from_connected_components_on_affinities(self):
         from neurofire.metrics.arand import ArandErrorFromConnectedComponentsOnAffinities
         affinity, groundtruth = self.build_input()

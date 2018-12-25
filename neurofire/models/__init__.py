@@ -15,14 +15,9 @@ from .fcn.fcn import FCN
 
 from .hed.hed import HED
 from .hed.fusionhed import FusionHED
-from .hed.dense_hed import DenseHED
 from .hed.m2fcn import M2FCN
 
-from .mad_net.mad_2d import MAD2D
-
 from .wnet.wnet_2d import WNet2D
-
-from .wnet_multiscale.wnet_2d_multiscale import WNet2DMultiscale
 
 
 def get_model(name):
