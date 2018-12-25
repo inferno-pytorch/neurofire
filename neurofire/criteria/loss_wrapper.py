@@ -73,32 +73,35 @@ class LossWrapper(nn.Module):
             assert callable(weight_function)
         self.weight_function = weight_function
 
-    def forward(self, prediction: torch.Tensor, target: torch.Tensor):
-        # calculate the weight based on prediction and target
-        if self.weight_function is not None:
-            weight = self.weight_function(prediction, target)
-            self.criterion.weight = weight
-
+    def apply_transforms(self, prediction, target):
         # check if the tensors (prediction and target are lists)
         # if so , we need to loop and apply the transforms to each element inidvidually
         is_listlike = isinstance(prediction, (list, tuple))
         if is_listlike:
             assert isinstance(target, (list, tuple))
+        # list-like input
+        if is_listlike:
+            transformed_prediction, transformed_target = [], []
+            for pred, targ in zip(prediction, target):
+                tr_pred, tr_targ = self.transforms(pred, targ)
+                transformed_prediction.append(tr_pred)
+                transformed_target.append(tr_targ)
+        # tensor input
+        else:
+            transformed_prediction, transformed_target = self.transforms(prediction, target)
+        return transformed_prediction, transformed_target
+
+    def forward(self, prediction, target):
+        # calculate the weight based on prediction and target
+        if self.weight_function is not None:
+            weight = self.weight_function(prediction, target)
+            self.criterion.weight = weight
 
         # apply the transforms to prediction and target or a list of predictions and targets
-        if self.transforms is not None:
-            # list-like input
-            if is_listlike:
-                transformed_prediction, transformed_target = [], []
-                for pred, targ in zip(prediction, target):
-                    tr_pred, tr_targ = self.transforms(pred, targ)
-                    transformed_prediction.append(tr_pred)
-                    transformed_target.append(tr_targ)
-            # tensor input
-            else:
-                transformed_prediction, transformed_target = self.transforms(prediction, target)
-        else:
+        if self.transforms is None:
             transformed_prediction, transformed_target = prediction, target
+        else:
+            transformed_prediction, transformed_target = self.apply_transforms(prediction, target)
 
         loss = self.criterion(transformed_prediction, transformed_target)
         return loss

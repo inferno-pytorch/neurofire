@@ -11,23 +11,75 @@ from inferno.io.transform import Transform
 # (for affinity trafos on gpu)
 
 
+class ExpPrediction(Transform):
+    """
+    """
+    def __init__(self, **super_kwargs):
+        super().__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        return torch.exp(prediction), target
+
+
+class OrdinalToOneHot(Transform):
+    """
+    """
+    def __init__(self, n_classes, **super_kwargs):
+        super().__init__(**super_kwargs)
+        self.n_classes = n_classes
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        assert prediction.shape[1] == self.n_classes
+
+        transformed = torch.zeros_like(prediction)
+        for c in range(self.n_classes):
+            transformed[:, c][target.eq(float(c))] = 1
+        return prediction, transformed
+
+
+class SqueezeSingletonAxis(Transform):
+    """
+    """
+    def __init__(self, axis=0, **super_kwargs):
+        super().__init__(**super_kwargs)
+        self.axis = axis
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        shape = target.shape
+        assert shape[self.axis] == 1
+        slice_ = tuple(slice(None) if dim != self.axis else 0
+                       for dim in range(len(shape)))
+        target = target[slice_]
+        return prediction, target
+
+
 # TODO expect retain segmentation
 class MaskIgnoreLabel(Transform):
     """
     """
-    def __init__(self, ignore_label=0, **super_kwargs):
+    def __init__(self, ignore_label=0, set_to_zero=False, **super_kwargs):
         super(MaskIgnoreLabel, self).__init__(**super_kwargs)
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
+        self.set_to_zero = set_to_zero
 
     # for all batch requests, we assume that
     # we are passed prediction and target in `tensors`
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
-        mask_variable = Variable(target.data.clone().ne(float(self.ignore_label)).float(),
-                                 requires_grad=False).expand_as(prediction)
-        masked_prediction = prediction * mask_variable
+        mask = target.clone().ne_(float(self.ignore_label))
+        if self.set_to_zero:
+            target[torch.eq(mask, 0)] = 0
+        mask_tensor = mask.float().expand_as(prediction)
+        mask_tensor.requires_grad = False
+        masked_prediction = prediction * mask_tensor
         return masked_prediction, target
 
 
