@@ -3,7 +3,7 @@ import inferno.extensions.layers.convolutional as conv
 import inferno.extensions.layers.reshape as shape
 from inferno.extensions.containers.graph import Graph
 from inferno.extensions.containers.sequential import Sequential2
-from .base import Model
+from ..base import Model
 
 
 # Presets

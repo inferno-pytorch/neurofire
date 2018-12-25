@@ -1,7 +1,7 @@
 from inferno.io.volumetric import TIFVolumeLoader, HDF5VolumeLoader
 from inferno.io.transform import Compose
 from inferno.io.transform.generic import Cast
-from ....transforms.segmentation import NegativeExponentialDistanceTransform
+from ....transform.segmentation import NegativeExponentialDistanceTransform
 
 
 class MembraneVolume(TIFVolumeLoader):

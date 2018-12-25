@@ -4,3 +4,4 @@
 # neurofire
 
 Toolkit for deep learning with connectomics datasets. 
+Based on inferno, a lightweight wrapper around pytorch.

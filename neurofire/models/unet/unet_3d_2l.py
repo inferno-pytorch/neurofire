@@ -8,11 +8,10 @@ from inferno.extensions.layers.sampling import AnisotropicPool, AnisotropicUpsam
 def get_pooler(scale_factor):
     assert isinstance(scale_factor, (int, list, tuple))
     if isinstance(scale_factor, (list, tuple)):
-        assert len(scale_factor) == 3
+        assert len(scale_factor) == 2
         # we need to make sure that the scale factor conforms with the single value
         # that AnisotropicPool expects
         assert scale_factor[0] == 1
-        assert scale_factor[1] == scale_factor[2]
         pooler = AnisotropicPool(downscale_factor=scale_factor[1])
     else:
         if scale_factor > 0:
@@ -27,11 +26,10 @@ def get_pooler(scale_factor):
 def get_sampler(scale_factor):
     assert isinstance(scale_factor, (int, list, tuple))
     if isinstance(scale_factor, (list, tuple)):
-        assert len(scale_factor) == 3
+        assert len(scale_factor) == 2
         # we need to make sure that the scale factor conforms with the single value
         # that AnisotropicPool expects
         assert scale_factor[0] == 1
-        assert scale_factor[1] == scale_factor[2]
         sampler = AnisotropicUpsample(scale_factor=scale_factor[1])
     else:
         if scale_factor > 0:
@@ -72,9 +70,9 @@ CONV_TYPES = {'vanilla': ConvELU3D,
               'conv_bn': BNReLUConv3D}
 
 
-class UNet3D(UNetSkeleton):
+class UNet3D2l(UNetSkeleton):
     """
-    3D U-Net architecture.
+    3D U-Net architecture with 2 layers.
     """
     def __init__(self,
                  in_channels,
@@ -119,25 +117,21 @@ class UNet3D(UNetSkeleton):
         # Build encoders with proper number of feature maps
         f0e = initial_num_fmaps
         f1e = initial_num_fmaps * fmap_growth
-        f2e = initial_num_fmaps * fmap_growth**2
         encoders = [
             Encoder(in_channels, f0e, 3, 0, conv_type=conv_type),
             Encoder(f0e, f1e, 3, self.scale_factor[0], conv_type=conv_type),
-            Encoder(f1e, f2e, 3, self.scale_factor[1], conv_type=conv_type)
         ]
 
         # Build base
         # number of base output feature maps
-        f0b = initial_num_fmaps * fmap_growth**3
-        base = Base(f2e, f0b, 3, conv_type=conv_type, scale_factor=self.scale_factor[2])
+        f0b = initial_num_fmaps * fmap_growth**2
+        base = Base(f1e, f0b, 3, conv_type=conv_type, scale_factor=self.scale_factor[1])
 
         # Build decoders (same number of feature maps as MALA)
-        f2d = initial_num_fmaps * fmap_growth**2
         f1d = initial_num_fmaps * fmap_growth
         f0d = initial_num_fmaps
         decoders = [
-            Decoder(f0b + f2e, f2d, 3, self.scale_factor[1], conv_type=conv_type),
-            Decoder(f2d + f1e, f1d, 3, self.scale_factor[0], conv_type=conv_type),
+            Decoder(f0b + f1e, f1d, 3, self.scale_factor[0], conv_type=conv_type),
             Decoder(f1d + f0e, f0d, 3, 0, conv_type=conv_type)
         ]
 
@@ -148,7 +142,7 @@ class UNet3D(UNetSkeleton):
             final_activation = nn.Sigmoid() if out_channels == 1 else nn.Softmax2d()
 
         # Build the architecture
-        super(UNet3D, self).__init__(encoders=encoders,
+        super(UNet3D2l, self).__init__(encoders=encoders,
                                      base=base,
                                      decoders=decoders,
                                      output=output,
