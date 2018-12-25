@@ -20,18 +20,20 @@ def affinity_config_to_transform(**affinity_config):
         "Need either 'offsets' or 'block_shapes' parameter in config"
 
     if 'offsets' in affinity_config:
-        return Segmentation2Affinities(**affinity_config)
+        #whether to calculating affinities on 2D or 3D
+        if len(affinity_config['offsets'][0])==2: return Segmentation2Affinities2D(**affinity_config)
+        else: return Segmentation2Affinities(**affinity_config)
     else:
         return Segmentation2MultiscaleAffinities(**affinity_config)
 
 
-class Segmentation2Affinities(Transform, DtypeMapping):
+class Segmentation2Affinities2or3D(Transform, DtypeMapping):
     def __init__(self, offsets, dtype='float32',
                  retain_mask=False, ignore_label=None,
                  retain_segmentation=False, **super_kwargs):
         assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
-        super(Segmentation2Affinities, self).__init__(**super_kwargs)
+        super(Segmentation2Affinities2or3D, self).__init__(**super_kwargs)
         self.dim = len(offsets[0])
         assert self.dim in (2, 3), str(self.dim)
         assert all(len(off) == self.dim for off in offsets[1:])
@@ -42,13 +44,7 @@ class Segmentation2Affinities(Transform, DtypeMapping):
         self.retain_segmentation = retain_segmentation
         # self.add_singleton_channel_dimension = add_singleton_channel_dimension
 
-    def volume_function(self, tensor):
-        # tensor.shape = (Z, Y, X)
-        # for 2 d input, we need singleton input
-        if self.dim == 2:
-            assert tensor.shape[0] == 1
-            tensor = tensor[0]
-
+    def input_function(self, tensor):
         if self.ignore_label is not None:
             # output.shape = (C, Z, Y, X)
             output, mask = compute_affinities(tensor, self.offsets,
@@ -84,7 +80,22 @@ class Segmentation2Affinities(Transform, DtypeMapping):
                                     axis=0)
         return output
 
+class Segmentation2Affinities(Segmentation2Affinities2or3D):
+    def __init__(self, **super_kwargs):
+        super(Segmentation2Affinities, self).__init__(**super_kwargs)
+    def volume_function(self, tensor):
+        assert tensor.ndim==3
+        output = self.input_function(tensor)
+        return output
 
+class Segmentation2Affinities2D(Segmentation2Affinities2or3D):
+    def __init__(self, **super_kwargs):
+        super(Segmentation2Affinities2D, self).__init__(**super_kwargs)
+    def image_function(self, tensor):
+        assert tensor.ndim==2
+        output = self.input_function(tensor)
+        return output
+    
 class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
     def __init__(self, block_shapes, dtype='float32', ignore_label=None,
                  retain_mask=False, retain_segmentation=False,
