@@ -6,6 +6,8 @@ from inferno.io.transform.generic import Cast, Normalize
 from inferno.io.core.base import SyncableDataset
 from inferno.io.core.base import IndexSpec
 
+from neurofire.transform import DefectAugmentation
+
 try:
     import z5py
     WITH_Z5PY = True
@@ -30,9 +32,8 @@ class RawVolume(io.HDF5VolumeLoader):
     def __init__(self, path, path_in_file=None,
                  data_slice=None, name=None, dtype='float32',
                  mean=None, std=None, sigma=None, **slicing_config):
-        # Init super
-        super(RawVolume, self).__init__(path=path, path_in_h5_dataset=path_in_file,
-                                        data_slice=data_slice, name=name, **slicing_config)
+        super().__init__(path=path, path_in_h5_dataset=path_in_file,
+                         data_slice=data_slice, name=name, **slicing_config)
         # Record attributes
         assert isinstance(dtype, str)
         self.dtype = dtype
@@ -48,6 +49,56 @@ class RawVolume(io.HDF5VolumeLoader):
                                  Normalize(mean=mean, std=std),
                                  AdditiveNoise(sigma=sigma))
         return transforms
+
+
+class RawVolumeWithDefectAugmentation(RawVolume):
+    def __init__(self, path, defect_augmentation_config,
+                 name=None, path_in_file=None,
+                 data_slice=None, dtype='float32',
+                 ignore_slice_list=None, mean=None, std=None, sigma=None,
+                 **slicing_config):
+
+        super().__init__(path=path, path_in_file=path_in_file,
+                         data_slice=data_slice, name=name,
+                         dtype=dtype, mean=mean, std=std, sigma=sigma,
+                         **slicing_config)
+
+        defect_augmentation_config = yaml2dict(defect_augmentation_config)
+        defect_augmentation_config.update({'ignore_slice_list': ignore_slice_list})
+        self.defect_augmentation = DefectAugmentation.from_config(defect_augmentation_config)
+
+    def __getitem__(self, index):
+        # Casting to int would allow index to be IndexSpec objects.
+        index = int(index)
+        slices = self.base_sequence[index]
+        sliced_volume = self.volume[tuple(slices)]
+        transformed = sliced_volume if self.transforms is None  else\
+            self.transforms(sliced_volume)
+
+        # apply defect augmentation with z-offset
+        z_offset = slices[0].start
+        transformed = self.defect_augmentation(transformed, z_offset=z_offset)
+
+        if self.return_index_spec:
+            return transformed, IndexSpec(index=index, base_sequence_at_index=slices)
+        else:
+            return transformed
+
+    @classmethod
+    def from_config(cls, config):
+        config = yaml2dict(config)
+        path = config.get('path')
+        defect_augmentation_config = config.get('defect_augmentation_config')
+        path_in_h5_dataset = config.get('path_in_h5_dataset', None)
+        data_slice = config.get('data_slice', None)
+        name = config.get('name', None)
+        dtype = config.get('dtype', 'float32')
+        ignore_slice_list = config.get('ignore_slice_list', None)
+        slicing_config = config.get('slicing_config', None)
+        return cls(path, defect_augmentation_config,
+                   path_in_h5_dataset=path_in_h5_dataset,
+                   data_slice=data_slice, name=name, dtype=dtype,
+                   ignore_slice_list=ignore_slice_list, **slicing_config)
 
 
 class MultiscaleRawVolume(SyncableDataset):
@@ -135,14 +186,15 @@ class MultiscaleRawVolume(SyncableDataset):
 
             # change the target shape to fit the mandatory divisor if given
             if mandatory_divisor is not None:
-                mandatory_divisor = mandatory_divisor if isinstance(mandatory_divisor, (tuple, list)) else\
+                mandatory_divisor = mandatory_divisor if isinstance(mandatory_divisor,
+                                                                    (tuple, list)) else\
                     (mandatory_divisor,) * len(target_shape)
                 target_shape = tuple(ts if ts % md == 0 else ts + (md - ts % md)
                                      for ts, md in zip(target_shape, mandatory_divisor))
 
             shape_diff = tuple((os - ts) / 2
                                for os, ts in zip(original_shape, target_shape))
-            # FIXME this will not yield the correct size odd target shapes
+            # FIXME this will not yield the correct size for odd target shapes
             slices_ = tuple(slice(sl.start - floor(sd),
                                   sl.stop + ceil(sd)) for sl, sd in zip(slices_,
                                                                         shape_diff))
