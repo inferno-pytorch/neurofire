@@ -20,13 +20,13 @@ class RejectNonZeroThreshold(object):
 
 
 class ArtifactVolume(HDF5VolumeLoader):
-    def __init__(self, path, path_file=None, data_slice=None,
+    def __init__(self, path, path_in_h5_dataset=None, data_slice=None,
                  dtype='float32', **slicing_config):
 
         # Initialize super with path to gt_cleaned.h5
-        super(ArtifactVolume, self).__init__(path, path_in_filet=path_in_file,
-                                             data_slice=data_slice,
-                                             **slicing_config)
+        super().__init__(path, path_in_h5_dataset=path_in_h5_dataset,
+                         data_slice=data_slice,
+                         **slicing_config)
         assert isinstance(dtype, str)
         self.dtype = dtype
         # Make transforms

@@ -5,8 +5,9 @@ from inferno.io.transform.volume import AdditiveNoise
 from inferno.io.transform.generic import Cast, Normalize
 from inferno.io.core.base import SyncableDataset
 from inferno.io.core.base import IndexSpec
+from inferno.utils.io_utils import yaml2dict
 
-from neurofire.transform import DefectAugmentation
+from neurofire.transform.defect_augmentation import DefectAugmentation
 
 try:
     import z5py

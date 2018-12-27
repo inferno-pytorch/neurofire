@@ -20,7 +20,7 @@ class SegmentationVolume(io.HDF5VolumeLoader):
 
     def get_transforms(self, label_components):
         if label_components:
-            transforms = Compose(ConnectedComponents3D(label_segmentation=True),
+            transforms = Compose(ConnectedComponents3D(),
                                  Cast(self.dtype))
         else:
             transforms = Cast(self.dtype)
