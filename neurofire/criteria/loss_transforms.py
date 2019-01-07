@@ -2,13 +2,11 @@ import numbers
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.functional import conv2d, conv3d
 
 from inferno.io.transform import Transform
-
-# TODO provide functionality to do trafos on gpu ?!?
-# (for affinity trafos on gpu)
 
 
 class ExpPrediction(Transform):
@@ -21,6 +19,18 @@ class ExpPrediction(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         return torch.exp(prediction), target
+
+
+class SoftmaxPrediction(Transform):
+    """
+    """
+    def __init__(self, **super_kwargs):
+        super().__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        return F.softmax(prediction, dim=1), target
 
 
 class OrdinalToOneHot(Transform):
