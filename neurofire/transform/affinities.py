@@ -53,8 +53,9 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         else:
             output, mask = compute_affinities(tensor, self.offsets)
 
+        # FIXME what does this do, need to refactor !
         # hack for platyneris data
-        platy_hack = True
+        platy_hack = False
         if platy_hack:
             chan_mask = mask[1].astype('bool')
             output[0][chan_mask] = np.min(output[:2], axis=0)[chan_mask]
