@@ -38,13 +38,13 @@ class ArandFromSegmentationBase(ArandError):
 
     Arguments:
         parameters [list]: list of different parameters for segmentation algorithm
-            that should be evaluated (only single parameter supported for now)
+            that should be evaluated. only single type of parameter supported for now. (default: None)
         average_slices [bool]: evaluate the score as average over 2d slices (default: True)
     """
 
-    def __init__(self, parameters, average_slices=True):
-        super(ArandFromSegmentationBase, self).__init__(average_slices=average_slices)
-        self.parameters = pyu.to_iterable(parameters)
+    def __init__(self, parameters=None, average_slices=False):
+        super().__init__(average_slices=average_slices)
+        self.parameters = parameters if parameters is None else pyu.to_iterable(parameters)
 
     def input_to_segmentation(self, input_batch, parameter):
         raise NotImplementedError("Implement `input_to_segmentation` in subclass")
@@ -57,23 +57,26 @@ class ArandFromSegmentationBase(ArandError):
         if(np.isnan(input_batch).any()):
             raise RuntimeError("Have nans in prediction")
 
-        # iterate over the different parameters we have
-        arand_errors = []
-        for param in self.parameters:
-            # compute the mean arand erros for all batches for the given threshold
-            gt_seg = target[:, 0:1]
-            seg = self.input_to_segmentation(input_batch, param)
-            arand_errors.append(super(ArandFromSegmentationBase, self).forward(seg, gt_seg))
-        # return the best arand errror
-        return min(arand_errors)
+        gt_seg = target[:, 0:1]
+        if self.parameters is None:
+            seg = self.input_to_segmentation(input_batch)
+            return super().forward(seg, gt_seg)
+        else:
+            arand_errors = []
+            # iterate over the different parameters we have
+            for param in self.parameters:
+                # compute the mean arand erros for all batches for the given threshold
+                seg = self.input_to_segmentation(input_batch, param)
+                arand_errors.append(super().forward(seg, gt_seg))
+                # return the best arand errror
+                return min(arand_errors)
 
 
 class ArandErrorFromConnectedComponentsOnAffinities(ArandFromSegmentationBase):
-
     def __init__(self, thresholds=0.5, invert_affinities=False,
-                 normalize_affinities=False, average_slices=True):
+                 normalize_affinities=False, **super_kwargs):
         assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
-        super(ArandErrorFromConnectedComponentsOnAffinities, self).__init__(thresholds, average_slices)
+        super().__init__(thresholds, **super_kwargs)
         self.invert_affinities = invert_affinities
         self.normalize_affinities = normalize_affinities
 
@@ -92,8 +95,8 @@ class ArandErrorFromConnectedComponentsOnAffinities(ArandFromSegmentationBase):
 
 class ArandErrorFromConnectedComponents(ArandFromSegmentationBase):
     def __init__(self, thresholds=0.5, invert_input=False,
-                 average_input=False, normalize_input=False, average_slices=True):
-        super(ArandErrorFromConnectedComponents, self).__init__(thresholds, average_slices=average_slices)
+                 average_input=False, normalize_input=False, **super_kwargs):
+        super().__init__(thresholds, **super_kwargs)
         self.invert_input = invert_input
         self.normalize_input = normalize_input
         self.average_input = average_input
@@ -121,19 +124,16 @@ class ArandErrorFromConnectedComponents(ArandFromSegmentationBase):
 
 
 class ArandErrorFromMWS(ArandFromSegmentationBase):
-
-    def __init__(self, offsets, strides=None, randomize_strides=None,
-                 average_slices=True):
+    def __init__(self, offsets, strides=None, randomize_strides=False,
+                 **super_kwargs):
         assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
-        # NOTE we give a trivial parameter list, to be consistent with the base api
-        super(ArandErrorFromMWS, self).__init__([None], average_slices=average_slices)
-        # TODO validate input
+        super().__init__(**super_kwargs)
         self.offsets = offsets
         self.dim = len(offsets[0])
         self.strides = strides
         self.randomize_strides = randomize_strides
 
-    def _run_mws(self, input_, param=None):
+    def _run_mws(self, input_):
         input_[:self.dim] *= -1
         input_[:self.dim] += 1
         return compute_mws_segmentation(input_, self.offsets,
@@ -141,21 +141,21 @@ class ArandErrorFromMWS(ArandFromSegmentationBase):
                                         strides=self.strides,
                                         randomize_strides=self.randomize_strides)
 
-    # TODO add additional parameter ???
-    def input_to_segmentation(self, input_batch, param=None):
+    def input_to_segmentation(self, input_batch):
         dim = input_batch.ndim - 2
         assert dim == self.dim
-        seg = np.array([self._run_mws(batch, param) for batch in input_batch])
+        seg = np.array([self._run_mws(batch) for batch in input_batch])
         # NOTE: we add a singleton channel axis here, which is expected by the arand metrics
         return torch.from_numpy(seg[:, None].astype('int32'))
 
 
 class ArandErrorFromMulticut(ArandFromSegmentationBase):
-    def __init__(self, betas=.5, offsets=None, average_slices=False,
+    def __init__(self, betas=.5, offsets=None,
                  dt_threshold=.25, dt_sigma=2., use_2d_ws=False,
-                 size_filter=25, weight_edges=False, n_threads=8):
+                 size_filter=25, weight_edges=False, n_threads=8,
+                 **super_kwargs):
         assert HAVE_NIFTY, "Need nifty to run multicut validation"
-        super(ArandErrorFromMulticut, self).__init__(betas, average_slices=average_slices)
+        super().__init__(betas, **super_kwargs)
         self.offsets = offsets
         self.dt_threshold = dt_threshold
         self.dt_sigma = dt_sigma
