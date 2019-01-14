@@ -3,7 +3,6 @@ import numbers
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.autograd import Variable
 from torch.nn.functional import conv2d, conv3d
 
 from inferno.io.transform import Transform
@@ -44,7 +43,6 @@ class OrdinalToOneHot(Transform):
         assert len(tensors) == 2
         prediction, target = tensors
         assert prediction.shape[1] == self.n_classes
-
         transformed = torch.zeros_like(prediction)
         for c in range(self.n_classes):
             transformed[:, c][target.eq(float(c))] = 1
@@ -69,7 +67,6 @@ class SqueezeSingletonAxis(Transform):
         return prediction, target
 
 
-# TODO expect retain segmentation
 class MaskIgnoreLabel(Transform):
     """
     """
@@ -119,14 +116,14 @@ class ApplyAndRemoveMask(Transform):
         assert prediction.dim() in [4, 5], prediction.dim()
         assert target.dim() == prediction.dim(), "%i, %i" % (target.dim(), prediction.dim())
         assert target.size(1) == 2 * prediction.size(1), "%i, %i" % (target.size(1), prediction.size(1))
+        assert target.shape[2:] == prediction.shape[2:], "%s, %s" % (str(target.shape), str(prediction.shape))
         seperating_channel = target.size(1) // 2
         mask = target[:, seperating_channel:]
         target = target[:, :seperating_channel]
-        # mask_variable = Variable(torch.from_numpy(mask), requires_grad=False)
-        mask_variable = Variable(mask, requires_grad=False)
+        mask.requires_grad = False
 
         # mask prediction with mask
-        masked_prediction = prediction * mask_variable
+        masked_prediction = prediction * mask
         return masked_prediction, target
 
 
@@ -177,8 +174,8 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert segmentation.size(1) == 1, str(segmentation.size())
 
         # Get mask where we don't have ignore label
-        dont_ignore_labels_mask_variable = Variable(segmentation.data.clone().ne_(self.ignore_label),
-                                                    requires_grad=False, volatile=True)
+        dont_ignore_labels_mask_variable = segmentation.data.clone().ne_(self.ignore_label)
+        dont_ignore_labels_mask_variable.requires_grad = False
 
         if self.dim == 2:
             kernel_alloc = segmentation.data.new(1, 1, 3, 3).zero_()
@@ -190,7 +187,7 @@ class MaskTransitionToIgnoreLabel(Transform):
             raise NotImplementedError
 
         shift_kernels = self.mask_shift_kernels(kernel_alloc, self.dim, offset)
-        shift_kernels = Variable(shift_kernels, requires_grad=False)
+        shift_kernels.requires_grad = False
         # Convolve
         abs_offset = tuple(max(1, abs(off)) for off in offset)
         mask_shifted = conv(input=dont_ignore_labels_mask_variable,
@@ -220,7 +217,8 @@ class MaskTransitionToIgnoreLabel(Transform):
         # validate target and extract segmentation from the target
         assert target.size(1) == len(self.offsets) + 1, "%i, %i" % (target.size(1), len(self.offsets) + 1)
         segmentation = target[:, 0:1]
-        full_mask_variable = Variable(self.full_mask_tensor(segmentation), requires_grad=False)
+        full_mask_variable = self.full_mask_tensor(segmentation)
+        full_mask_tensor.requires_grad = False
 
         # Mask prediction with master mask
         masked_prediction = prediction * full_mask_variable
