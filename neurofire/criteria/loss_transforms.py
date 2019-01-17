@@ -8,6 +8,50 @@ from torch.nn.functional import conv2d, conv3d
 from inferno.io.transform import Transform
 
 
+class DropChannels(Transform):
+    """
+    """
+    def __init__(self, index, from_, **super_kwargs):
+        super().__init__(**super_kwargs)
+        assert isinstance(index, (int, list, tuple)),\
+            "Only supports channels specified by single number or list / tuple"
+        # TODO implement this
+        if isinstance(index, (list, tuple)):
+            raise NotImplementedError()
+        self.slice_ = self.to_slice(index)
+
+        if from_ == 'prediction':
+            self.drop_in_prediction = True
+            self.drop_in_target = False
+        elif from_ == 'target':
+            self.drop_in_prediction = False
+            self.drop_in_target = True
+        elif from_ == 'both':
+            self.drop_in_prediction = True
+            self.drop_in_target = True
+        else:
+            raise ValueError("%s option for parameter `from_` not supported" % from_)
+
+    # FIXME need slicing magic to make this work for arbitrary indices !
+    @staticmethod
+    def to_slice(index):
+        if isinstance(index, int):
+            # FIXME
+            assert index == 0
+            return np.s_[:, 1:]
+        else:
+            raise NotImplementedError()
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        if self.drop_in_prediction:
+            prediction = prediction[self.slice_]
+        if self.drop_in_target:
+            target = target[self.slice_]
+        return prediction, target
+
+
 class ExpPrediction(Transform):
     """
     """
@@ -90,6 +134,7 @@ class MaskIgnoreLabel(Transform):
         return masked_prediction, target
 
 
+# TODO remove this in favor of more general `DropChannels`
 class RemoveSegmentationFromTarget(Transform):
     """
     Remove the zeroth channel (== segmentation when `retain_segmentation` is used)

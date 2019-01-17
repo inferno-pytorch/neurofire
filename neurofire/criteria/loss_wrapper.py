@@ -61,7 +61,7 @@ class LossWrapper(nn.Module):
                  criterion,
                  transforms=None,
                  weight_function=None):
-        super(LossWrapper, self).__init__()
+        super().__init__()
         # validate: the criterion needs to inherit from nn.Module
         # assert isinstance(criterion, nn.Module)
         self.criterion = criterion
