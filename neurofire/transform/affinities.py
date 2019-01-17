@@ -30,7 +30,8 @@ def affinity_config_to_transform(**affinity_config):
 class Segmentation2Affinities2or3D(Transform, DtypeMapping):
     def __init__(self, offsets, dtype='float32',
                  retain_mask=False, ignore_label=None,
-                 retain_segmentation=False, **super_kwargs):
+                 retain_segmentation=False, segmentation_to_binary=False,
+                 **super_kwargs):
         assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         super(Segmentation2Affinities2or3D, self).__init__(**super_kwargs)
@@ -42,9 +43,18 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         self.retain_mask = retain_mask
         self.ignore_label = ignore_label
         self.retain_segmentation = retain_segmentation
-        # self.add_singleton_channel_dimension = add_singleton_channel_dimension
+        self.segmentation_to_binary = segmentation_to_binary
+        assert not (self.retain_segmentation and self.segmentation_to_binary), "Currently not supported"
+
+    def to_binary_segmentation(self, tensor):
+        assert self.ignore_label != 0, "We assume 0 is background, not ignore label"
+        # NOTE: we set the background to foreground here beacause the affinities are usally
+        # inverted later to be compatible with sorensen dice
+        # would be good to refactor this somehow and make it less complicated though ...
+        return (tensor == 0).astype(self.dtype)
 
     def input_function(self, tensor):
+        # print("affs: in shape", tensor.shape)
         if self.ignore_label is not None:
             # output.shape = (C, Z, Y, X)
             output, mask = compute_affinities(tensor, self.offsets,
@@ -66,12 +76,23 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         # Cast to be sure
         if not output.dtype == self.dtype:
             output = output.astype(self.dtype)
+        #
+        # print("affs: shape before binary", output.shape)
+        if self.segmentation_to_binary:
+            output = np.concatenate((self.to_binary_segmentation(tensor)[None],
+                                     output), axis=0)
+        # print("affs: shape after binary", output.shape)
 
+        # print("affs: shape before mask", output.shape)
         # We might want to carry the mask along.
         # If this is the case, we insert it after the targets.
         if self.retain_mask:
-            output = np.concatenate((output, mask.astype(self.dtype, copy=False)),
-                                    axis=0)
+            mask = mask.astype(self.dtype, copy=False)
+            if self.segmentation_to_binary:
+                mask = np.concatenate(((tensor[None] != self.ignore_label).astype(self.dtype), mask),
+                                      axis=0)
+            output = np.concatenate((output, mask), axis=0)
+        # print("affs: shape after mask", output.shape)
 
         # We might want to carry the segmentation along for validation.
         # If this is the case, we insert it before the targets.
@@ -79,6 +100,8 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
             # Add a channel axis to tensor to make it (C, Z, Y, X) before cating to output
             output = np.concatenate((tensor[None].astype(self.dtype, copy=False), output),
                                     axis=0)
+
+        # print("affs: out shape", output.shape)
         return output
 
 
