@@ -174,7 +174,9 @@ class ApplyAndRemoveMask(Transform):
 
 class MaskTransitionToIgnoreLabel(Transform):
     """Applies a mask where the transition to zero label is masked for the respective offsets."""
-    def __init__(self, offsets, ignore_label=0, **super_kwargs):
+
+    def __init__(self, offsets, ignore_label=0,
+                 skip_channels=None, **super_kwargs):
         super(MaskTransitionToIgnoreLabel, self).__init__(**super_kwargs)
         assert isinstance(offsets, (list, tuple))
         assert len(offsets) > 0
@@ -182,6 +184,7 @@ class MaskTransitionToIgnoreLabel(Transform):
         self.offsets = offsets
         assert isinstance(ignore_label, numbers.Integral)
         self.ignore_label = ignore_label
+        self.skip_channels = skip_channels
 
     # TODO explain what the hell is going on here ...
     @staticmethod
@@ -263,7 +266,11 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert target.size(1) == len(self.offsets) + 1, "%i, %i" % (target.size(1), len(self.offsets) + 1)
         segmentation = target[:, 0:1]
         full_mask_variable = self.full_mask_tensor(segmentation)
-        full_mask_tensor.requires_grad = False
+        full_mask_variable.requires_grad = False
+
+        if self.skip_channels is not None:
+            for c in self.skip_channels:
+                full_mask_variable[:, c] = 1
 
         # Mask prediction with master mask
         masked_prediction = prediction * full_mask_variable
