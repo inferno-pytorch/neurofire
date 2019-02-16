@@ -204,6 +204,9 @@ class MaskTransitionToIgnoreLabel(Transform):
             raise NotImplementedError
         return kernel
 
+    def get_dont_ignore_labels_mask(self, segmentation, offset):
+        return segmentation.data.clone().ne_(self.ignore_label)
+
     def mask_tensor_for_offset(self, segmentation, offset):
         """
         Generate mask where a pixel is 1 if it's NOT a transition to ignore label
@@ -222,7 +225,7 @@ class MaskTransitionToIgnoreLabel(Transform):
         assert segmentation.size(1) == 1, str(segmentation.size())
 
         # Get mask where we don't have ignore label
-        dont_ignore_labels_mask_variable = segmentation.data.clone().ne_(self.ignore_label)
+        dont_ignore_labels_mask_variable = self.get_dont_ignore_labels_mask(segmentation, offset)
         dont_ignore_labels_mask_variable.requires_grad = False
 
         if self.dim == 2:
@@ -267,10 +270,6 @@ class MaskTransitionToIgnoreLabel(Transform):
         segmentation = target[:, 0:1]
         full_mask_variable = self.full_mask_tensor(segmentation)
         full_mask_variable.requires_grad = False
-
-        if self.skip_channels is not None:
-            for c in self.skip_channels:
-                full_mask_variable[:, c] = 1
 
         # Mask prediction with master mask
         masked_prediction = prediction * full_mask_variable
