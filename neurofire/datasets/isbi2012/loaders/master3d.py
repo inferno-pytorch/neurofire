@@ -11,7 +11,7 @@ from neurofire.datasets.loader import RawVolume, SegmentationVolume
 from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
 
 
-class IsbiDataset3D(Zip):
+class ISBI2012Dataset3D(Zip):
     def __init__(self, volume_config, slicing_config, master_config=None):
         assert isinstance(volume_config, dict)
         assert isinstance(slicing_config, dict)
@@ -95,6 +95,6 @@ def get_isbi_loader_3d(config):
     """
     config = yaml2dict(config)
     loader_config = config.pop('loader_config')
-    dataset = IsbiDataset3D.from_config(config)
+    dataset = ISBI2012Dataset3D.from_config(config)
     loader = DataLoader(dataset, **loader_config)
     return loader
