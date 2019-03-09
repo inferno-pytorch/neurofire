@@ -1,7 +1,7 @@
 import numpy as np
-from ..transforms.invertible_transforms import InvertibleTransform, ComposeInvertibles
-from ..transforms.invertible_transforms import InvertibleFlip2D, InvertibleFlip3D, InvertibleRotation
-from ..transforms.invertible_transforms import InvertibleTranspose2D, InvertibleTranspose3D
+from ..transform.invertible_transforms import InvertibleTransform, ComposeInvertibles
+from ..transform.invertible_transforms import InvertibleFlip2D, InvertibleFlip3D, InvertibleRotation
+from ..transform.invertible_transforms import InvertibleTranspose2D, InvertibleTranspose3D
 
 
 # this returns a 2d array with the all the indices of matching rows for a and b
