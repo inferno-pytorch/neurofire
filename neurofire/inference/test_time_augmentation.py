@@ -104,7 +104,7 @@ class TestTimeAugmenter(object):
     # invert transformation on affinity maps
     def invert_affinity_transform(self, affinities, offsets, trafo):
         # dict to find offsets
-        offset_dict = {offset: i_offset for i_offset, offset in enumerate(offsets)}
+        offset_dict = {tuple(offset): i_offset for i_offset, offset in enumerate(offsets)}
         # the result
         inverted_affinites = [None] * len(offsets)
 
