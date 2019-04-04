@@ -62,25 +62,30 @@ class TestTimeAugmenter(object):
         return self.combinator(output, axis=0)
 
     # produce full ring of affinities
-    def make_full_affinties(self, affinities, offsets):
+    def make_full_affinities(self, affinities, offsets):
         assert affinities.ndim in (3, 4)
         shape = affinities.shape[1:]
         dim = len(shape)
         padding_size = int(np.abs(offsets).max())
-        n_offsets = len(offsets)
 
         full_affinities = []
         full_offsets = []
 
         # iterate over the offsets / affinities
-        for i_offset in range(n_offsets):
+        for i_offset, offset in enumerate(offsets):
+
+            # normalize the offset
+            offset = tuple(int(off) for off in offset)
+            affinity_channel = affinities[i_offset].squeeze()
+
+            # if this is a zero offset, just add it to the full affinities and continue
+            if all(off == 0 for off in offset):
+                full_affinities.append(affinity_channel[None])
+                full_offsets.append(offset)
+                continue
 
             # pad the current affinity channel
-            affinity_channel = affinities[i_offset].squeeze()
             padded_affinity_channel = np.pad(affinity_channel, padding_size, mode='reflect')
-
-            # the offsets of this channel
-            offset = tuple(int(off) for off in offsets[i_offset])
 
             # the point-mirrored  offset
             p_offset = tuple(-1 * val for val in offset)
@@ -110,7 +115,7 @@ class TestTimeAugmenter(object):
 
         # make full affinities to ensure that we can later map all inverted affinity
         # channels back to an original channel
-        full_affinities, full_offsets = self.make_full_affinties(affinities, offsets)
+        full_affinities, full_offsets = self.make_full_affinities(affinities, offsets)
 
         # iterate over the full affinities
         for i_offset in range(len(full_offsets)):
@@ -127,6 +132,8 @@ class TestTimeAugmenter(object):
                 offset_index = offset_dict[inverted_offset]
                 inverted_affinites[offset_index] = inverted_affinity_channel[None]
 
+        for iv in inverted_affinites:
+            print(type(iv))
         inverted_affinites = np.concatenate(inverted_affinites, axis=0)
         assert inverted_affinites.shape == affinities.shape, "%s, %s" \
             % (str(inverted_affinites.shape), str(affinities.shape))
