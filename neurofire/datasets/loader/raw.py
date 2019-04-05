@@ -52,6 +52,29 @@ class RawVolume(io.HDF5VolumeLoader):
         return transforms
 
 
+class N5RawVolume(io.LazyN5VolumeLoader):
+    def __init__(self, path, path_in_file=None,
+                 data_slice=None, name=None, dtype='float32',
+                 mean=None, std=None, sigma=None, **slicing_config):
+        super().__init__(path=path, path_in_file=path_in_file,
+                         data_slice=data_slice, name=name, **slicing_config)
+        # Record attributes
+        assert isinstance(dtype, str)
+        self.dtype = dtype
+        # Make transforms
+        self.transforms = self.get_transforms(mean, std, sigma)
+
+    def get_transforms(self, mean, std, sigma):
+        if sigma is None:
+            transforms = Compose(Cast(self.dtype),
+                                 Normalize(mean=mean, std=std))
+        else:
+            transforms = Compose(Cast(self.dtype),
+                                 Normalize(mean=mean, std=std),
+                                 AdditiveNoise(sigma=sigma))
+        return transforms
+
+
 class RawVolumeWithDefectAugmentation(RawVolume):
     def __init__(self, path, defect_augmentation_config,
                  name=None, path_in_file=None,
@@ -73,7 +96,7 @@ class RawVolumeWithDefectAugmentation(RawVolume):
         index = int(index)
         slices = self.base_sequence[index]
         sliced_volume = self.volume[tuple(slices)]
-        transformed = sliced_volume if self.transforms is None  else\
+        transformed = sliced_volume if self.transforms is None else\
             self.transforms(sliced_volume)
 
         # apply defect augmentation with z-offset

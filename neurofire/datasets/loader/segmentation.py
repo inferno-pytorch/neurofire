@@ -20,7 +20,7 @@ class SegmentationVolume(io.HDF5VolumeLoader):
 
     def get_transforms(self, label_components):
         if label_components:
-            transforms = Compose(ConnectedComponents3D(),
+            transforms = Compose(ConnectedComponents3D(label_segmentation=True),
                                  Cast(self.dtype))
         else:
             transforms = Cast(self.dtype)
@@ -30,7 +30,7 @@ class SegmentationVolume(io.HDF5VolumeLoader):
 class N5SegmentationVolume(io.LazyN5VolumeLoader):
     def __init__(self, path, path_in_file,
                  data_slice=None, name=None, dtype='float32',
-                 **slicing_config):
+                 label_components=True, **slicing_config):
         # Init super
         super(N5SegmentationVolume, self).__init__(path=path, path_in_file=path_in_file,
                                                    data_slice=data_slice, name=name, **slicing_config)
@@ -41,6 +41,9 @@ class N5SegmentationVolume(io.LazyN5VolumeLoader):
         self.transforms = self.get_transforms()
 
     def get_transforms(self):
-        transforms = Compose(ConnectedComponents3D(label_segmentation=True),
-                             Cast(self.dtype))
+        if label_components:
+            transforms = Compose(ConnectedComponents3D(),
+                                 Cast(self.dtype))
+        else:
+            transforms = Cast(self.dtype)
         return transforms
