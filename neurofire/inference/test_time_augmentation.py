@@ -118,22 +118,21 @@ class TestTimeAugmenter(object):
         full_affinities, full_offsets = self.make_full_affinities(affinities, offsets)
 
         # iterate over the full affinities
-        for i_offset in range(len(full_offsets)):
+        for off, affinity_channel in zip(full_offsets, full_affinities):
 
             # caclulate the inverted offset
-            inverted_offset = trafo.invert_offset(full_offsets[i_offset])
+            inverted_offset = tuple(trafo.invert_offset(off))
             # if the inverted offset is in our original offsets,
             # invert the affinity channel and write it to the correct channel
             if inverted_offset in offset_dict:
                 # invert affinity channel
-                affinity_channel = full_affinities[i_offset]
                 inverted_affinity_channel = trafo.invert(affinity_channel)
                 # find the correct channel index
                 offset_index = offset_dict[inverted_offset]
                 inverted_affinites[offset_index] = inverted_affinity_channel[None]
 
-        for iv in inverted_affinites:
-            print(type(iv))
+        assert all(iva is not None for iva in inverted_affinites), \
+            'One or more offset could not be inverted'
         inverted_affinites = np.concatenate(inverted_affinites, axis=0)
         assert inverted_affinites.shape == affinities.shape, "%s, %s" \
             % (str(inverted_affinites.shape), str(affinities.shape))
