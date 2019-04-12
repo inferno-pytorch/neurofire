@@ -163,7 +163,7 @@ class TestTimeAugmenter(object):
 
     def __call__(self, input_, inference, offsets=None):
         if offsets is None:
-            assert isinstance(self.combinator, str), \
+            assert callable(self.combinator), \
                 "Multiple combination modes are not supported for single channel inference"
             return self._apply_without_offsets(input_, inference)
         else:
