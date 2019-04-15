@@ -79,11 +79,11 @@ class SoftmaxPrediction(Transform):
 class OrdinalToOneHot(Transform):
     """
     """
-    def __init__(self, n_classes, ignore_classes=None, **super_kwargs):
+    def __init__(self, n_classes, ignore_label=None, **super_kwargs):
         super().__init__(**super_kwargs)
         if isinstance(n_classes, int):
             self.n_classes = n_classes
-            self.classes = list(range(classes))
+            self.classes = list(range(n_classes))
             self.class_to_channel = None
         elif isinstance(n_classes, (list, tuple)):
             self.n_classes = len(n_classes)
@@ -92,6 +92,7 @@ class OrdinalToOneHot(Transform):
                                      for chan_id, class_id in enumerate(self.classes)}
         else:
             raise ValueError("Unsupported type %s" % type(n_classes))
+        self.ignore_label = ignore_label
 
     def batch_function(self, tensors):
         assert len(tensors) == 2
@@ -101,6 +102,11 @@ class OrdinalToOneHot(Transform):
         for c in self.classes:
             chan = c if self.class_to_channel is None else self.class_to_channel[c]
             transformed[:, chan:chan+1] += target.eq(float(c)).float()
+        # preserve the ignore-label
+        if self.ignore_label is not None:
+            mask = target.eq(float(self.ignore_label))
+            for c in range(self.n_classes):
+                transformed[:, c:c+1][mask] = self.ignore_label
         return prediction, transformed
 
 
