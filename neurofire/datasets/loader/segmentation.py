@@ -8,7 +8,7 @@ from neurofire.transform.segmentation import ConnectedComponents3D
 class SegmentationVolume(io.HDF5VolumeLoader):
     def __init__(self, path, path_in_file,
                  data_slice=None, name=None, dtype='float32',
-                 label_components=True, **slicing_config):
+                 **slicing_config):
         # Init super
         super(SegmentationVolume, self).__init__(path=path, path_in_h5_dataset=path_in_file,
                                                  data_slice=data_slice, name=name, **slicing_config)
@@ -16,14 +16,11 @@ class SegmentationVolume(io.HDF5VolumeLoader):
         assert isinstance(dtype, str)
         self.dtype = dtype
         # Make transforms
-        self.transforms = self.get_transforms(label_components)
+        self.transforms = self.get_transforms()
 
-    def get_transforms(self, label_components):
-        if label_components:
-            transforms = Compose(ConnectedComponents3D(),
-                                 Cast(self.dtype))
-        else:
-            transforms = Cast(self.dtype)
+    def get_transforms(self):
+        transforms = Compose(ConnectedComponents3D(),
+                             Cast(self.dtype))
         return transforms
 
 
@@ -41,6 +38,6 @@ class N5SegmentationVolume(io.LazyN5VolumeLoader):
         self.transforms = self.get_transforms()
 
     def get_transforms(self):
-        transforms = Compose(ConnectedComponents3D(label_segmentation=True),
+        transforms = Compose(ConnectedComponents3D(),
                              Cast(self.dtype))
         return transforms

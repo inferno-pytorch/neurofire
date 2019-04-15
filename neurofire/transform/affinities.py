@@ -7,7 +7,7 @@ from .segmentation import DtypeMapping
 try:
     from affogato.affinities import compute_multiscale_affinities, compute_affinities
     HAVE_AFFOGATO = True
-except ImportError as e:
+except ImportError:
     HAVE_AFFOGATO = False
     compute_affinities = None
     # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
@@ -20,9 +20,11 @@ def affinity_config_to_transform(**affinity_config):
         "Need either 'offsets' or 'block_shapes' parameter in config"
 
     if 'offsets' in affinity_config:
-        #whether to calculating affinities on 2D or 3D
-        if len(affinity_config['offsets'][0])==2: return Segmentation2Affinities2D(**affinity_config)
-        else: return Segmentation2Affinities(**affinity_config)
+        # whether to calculating affinities on 2D or 3D
+        if len(affinity_config['offsets'][0]) == 2:
+            return Segmentation2Affinities2D(**affinity_config)
+        else:
+            return Segmentation2Affinities(**affinity_config)
     else:
         return Segmentation2MultiscaleAffinities(**affinity_config)
 
@@ -31,7 +33,7 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
     def __init__(self, offsets, dtype='float32',
                  retain_mask=False, ignore_label=None,
                  retain_segmentation=False, segmentation_to_binary=False,
-                 **super_kwargs):
+                 map_to_foreground=True, **super_kwargs):
         assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         super(Segmentation2Affinities2or3D, self).__init__(**super_kwargs)
@@ -45,13 +47,14 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         self.retain_segmentation = retain_segmentation
         self.segmentation_to_binary = segmentation_to_binary
         assert not (self.retain_segmentation and self.segmentation_to_binary), "Currently not supported"
+        self.map_to_foreground = map_to_foreground
 
     def to_binary_segmentation(self, tensor):
         assert self.ignore_label != 0, "We assume 0 is background, not ignore label"
-        # NOTE: we set the background to foreground here beacause the affinities are usally
-        # inverted later to be compatible with sorensen dice
-        # would be good to refactor this somehow and make it less complicated though ...
-        return (tensor == 0).astype(self.dtype)
+        if self.map_to_foreground:
+            return (tensor == 0).astype(self.dtype)
+        else:
+            return (tensor != 0).astype(self.dtype)
 
     def input_function(self, tensor):
         # print("affs: in shape", tensor.shape)
@@ -108,8 +111,9 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
 class Segmentation2Affinities(Segmentation2Affinities2or3D):
     def __init__(self, **super_kwargs):
         super(Segmentation2Affinities, self).__init__(**super_kwargs)
+
     def volume_function(self, tensor):
-        assert tensor.ndim==3
+        assert tensor.ndim == 3
         output = self.input_function(tensor)
         return output
 
@@ -117,8 +121,9 @@ class Segmentation2Affinities(Segmentation2Affinities2or3D):
 class Segmentation2Affinities2D(Segmentation2Affinities2or3D):
     def __init__(self, **super_kwargs):
         super(Segmentation2Affinities2D, self).__init__(**super_kwargs)
+
     def image_function(self, tensor):
-        assert tensor.ndim==2
+        assert tensor.ndim == 2
         output = self.input_function(tensor)
         return output
 

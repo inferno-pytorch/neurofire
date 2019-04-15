@@ -79,17 +79,28 @@ class SoftmaxPrediction(Transform):
 class OrdinalToOneHot(Transform):
     """
     """
-    def __init__(self, n_classes, **super_kwargs):
+    def __init__(self, n_classes, ignore_classes=None, **super_kwargs):
         super().__init__(**super_kwargs)
-        self.n_classes = n_classes
+        if isinstance(n_classes, int):
+            self.n_classes = n_classes
+            self.classes = list(range(classes))
+            self.class_to_channel = None
+        elif isinstance(n_classes, (list, tuple)):
+            self.n_classes = len(n_classes)
+            self.classes = n_classes
+            self.class_to_channel = {class_id: chan_id
+                                     for chan_id, class_id in enumerate(self.classes)}
+        else:
+            raise ValueError("Unsupported type %s" % type(n_classes))
 
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
         assert prediction.shape[1] == self.n_classes
         transformed = torch.zeros_like(prediction)
-        for c in range(self.n_classes):
-            transformed[:, c][target.eq(float(c))] = 1
+        for c in self.classes:
+            chan = c if self.class_to_channel is None else self.class_to_channel[c]
+            transformed[:, chan:chan+1] += target.eq(float(c)).float()
         return prediction, transformed
 
 
