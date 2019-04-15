@@ -8,12 +8,18 @@ from inferno.io.core.base import IndexSpec
 from inferno.utils.io_utils import yaml2dict
 
 from neurofire.transform.defect_augmentation import DefectAugmentation
+from neurofire.transform.volume import Normalize01
 
 try:
     import z5py
     WITH_Z5PY = True
 except ImportError:
     WITH_Z5PY = False
+
+try:
+    from mu_net.transform.superpixel_augmentation import WatershedAugmentation
+except ImportError:
+    WatershedAugmentation = None
 
 
 def read_param(param, name, type_):
@@ -32,23 +38,32 @@ def read_param(param, name, type_):
 class RawVolume(io.HDF5VolumeLoader):
     def __init__(self, path, path_in_file=None,
                  data_slice=None, name=None, dtype='float32',
-                 mean=None, std=None, sigma=None, **slicing_config):
+                 mean=None, std=None, sigma=None, zero_mean_unit_variance=True,
+                 p_augment_ws=0., **slicing_config):
         super().__init__(path=path, path_in_h5_dataset=path_in_file,
                          data_slice=data_slice, name=name, **slicing_config)
         # Record attributes
         assert isinstance(dtype, str)
         self.dtype = dtype
         # Make transforms
-        self.transforms = self.get_transforms(mean, std, sigma)
+        self.transforms = self.get_transforms(mean, std, sigma,
+                                              p_augment_ws, zero_mean_unit_variance)
 
-    def get_transforms(self, mean, std, sigma):
-        if sigma is None:
-            transforms = Compose(Cast(self.dtype),
-                                 Normalize(mean=mean, std=std))
+    def get_transforms(self, mean, std, sigma,
+                       p_augment_ws, zero_mean_unit_variance):
+        transforms = Cast(self.dtype)
+        # add normalization (zero mean / unit variance)
+        if zero_mean_unit_variance:
+            transforms.add(Normalize(mean=mean, std=std))
         else:
-            transforms = Compose(Cast(self.dtype),
-                                 Normalize(mean=mean, std=std),
-                                 AdditiveNoise(sigma=sigma))
+            transforms.add(Normalize01())
+        # add noist transform if specified
+        if sigma is not None:
+            transforms.add(AdditiveNoise(sigma=sigma))
+        # add watershed super-pixel augmentation is specified
+        if p_augment_ws > 0.:
+            assert WatershedAugmentation is not None
+            transforms.add(WatershedAugmentation(p_augment_ws, invert=True))
         return transforms
 
 
@@ -56,12 +71,15 @@ class RawVolumeWithDefectAugmentation(RawVolume):
     def __init__(self, path, defect_augmentation_config,
                  name=None, path_in_file=None,
                  data_slice=None, dtype='float32',
-                 ignore_slice_list=None, mean=None, std=None, sigma=None,
-                 **slicing_config):
+                 ignore_slice_list=None, mean=None, std=None,
+                 sigma=None, zero_mean_unit_variance=True,
+                 p_augment_ws=0., **slicing_config):
 
         super().__init__(path=path, path_in_file=path_in_file,
                          data_slice=data_slice, name=name,
                          dtype=dtype, mean=mean, std=std, sigma=sigma,
+                         p_augment_ws=p_augment_ws,
+                         zero_mean_unit_variance=zero_mean_unit_variance,
                          **slicing_config)
 
         defect_augmentation_config = yaml2dict(defect_augmentation_config)
@@ -73,7 +91,7 @@ class RawVolumeWithDefectAugmentation(RawVolume):
         index = int(index)
         slices = self.base_sequence[index]
         sliced_volume = self.volume[tuple(slices)]
-        transformed = sliced_volume if self.transforms is None  else\
+        transformed = sliced_volume if self.transforms is None else\
             self.transforms(sliced_volume)
 
         # apply defect augmentation with z-offset
