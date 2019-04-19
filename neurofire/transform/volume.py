@@ -123,7 +123,7 @@ class RejectNonZeroThreshold(object):
         return (np.count_nonzero(fetched) / fetched.size) < self.threshold
 
 
-def Normalize01(Transform):
+class Normalize01(Transform):
     def __init__(self, eps=1.e-4, **super_kwargs):
         super(Normalize01, self).__init__(**super_kwargs)
         self.eps = eps

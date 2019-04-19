@@ -51,7 +51,7 @@ class RawVolume(io.HDF5VolumeLoader):
 
     def get_transforms(self, mean, std, sigma,
                        p_augment_ws, zero_mean_unit_variance):
-        transforms = Cast(self.dtype)
+        transforms = Compose(Cast(self.dtype))
         # add normalization (zero mean / unit variance)
         if zero_mean_unit_variance:
             transforms.add(Normalize(mean=mean, std=std))
@@ -70,23 +70,33 @@ class RawVolume(io.HDF5VolumeLoader):
 class N5RawVolume(io.LazyN5VolumeLoader):
     def __init__(self, path, path_in_file=None,
                  data_slice=None, name=None, dtype='float32',
-                 mean=None, std=None, sigma=None, **slicing_config):
+                 mean=None, std=None, sigma=None,
+                 zero_mean_unit_variance=True, p_augment_ws=0,
+                 **slicing_config):
         super().__init__(path=path, path_in_file=path_in_file,
                          data_slice=data_slice, name=name, **slicing_config)
         # Record attributes
         assert isinstance(dtype, str)
         self.dtype = dtype
         # Make transforms
-        self.transforms = self.get_transforms(mean, std, sigma)
+        self.transforms = self.get_transforms(mean, std, sigma,
+                                              p_augment_ws, zero_mean_unit_variance)
 
-    def get_transforms(self, mean, std, sigma):
-        if sigma is None:
-            transforms = Compose(Cast(self.dtype),
-                                 Normalize(mean=mean, std=std))
+    def get_transforms(self, mean, std, sigma,
+                       p_augment_ws, zero_mean_unit_variance):
+        transforms = Compose(Cast(self.dtype))
+        # add normalization (zero mean / unit variance)
+        if zero_mean_unit_variance:
+            transforms.add(Normalize(mean=mean, std=std))
         else:
-            transforms = Compose(Cast(self.dtype),
-                                 Normalize(mean=mean, std=std),
-                                 AdditiveNoise(sigma=sigma))
+            transforms.add(Normalize01())
+        # add noist transform if specified
+        if sigma is not None:
+            transforms.add(AdditiveNoise(sigma=sigma))
+        # add watershed super-pixel augmentation is specified
+        if p_augment_ws > 0.:
+            assert WatershedAugmentation is not None
+            transforms.add(WatershedAugmentation(p_augment_ws, invert=True))
         return transforms
 
 
