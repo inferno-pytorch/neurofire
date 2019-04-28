@@ -6,11 +6,8 @@ from .segmentation import DtypeMapping
 
 try:
     from affogato.affinities import compute_multiscale_affinities, compute_affinities
-    HAVE_AFFOGATO = True
 except ImportError:
-    HAVE_AFFOGATO = False
-    compute_affinities = None
-    # print("Couldn't find 'affinities' module, fast affinity calculation is not available")
+    compute_affinities, compute_multiscale_affinities = None, None
 
 
 # TODO add more options (membrane prediction)
@@ -33,8 +30,10 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
     def __init__(self, offsets, dtype='float32',
                  retain_mask=False, ignore_label=None,
                  retain_segmentation=False, segmentation_to_binary=False,
-                 map_to_foreground=True, **super_kwargs):
-        assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
+                 map_to_foreground=True, learn_ignore_transitions=False,
+                 **super_kwargs):
+        assert compute_affinities is not None,\
+            "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         super(Segmentation2Affinities2or3D, self).__init__(**super_kwargs)
         self.dim = len(offsets[0])
@@ -46,8 +45,10 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         self.ignore_label = ignore_label
         self.retain_segmentation = retain_segmentation
         self.segmentation_to_binary = segmentation_to_binary
-        assert not (self.retain_segmentation and self.segmentation_to_binary), "Currently not supported"
+        assert not (self.retain_segmentation and self.segmentation_to_binary),\
+            "Currently not supported"
         self.map_to_foreground = map_to_foreground
+        self.learn_ignore_transitions = learn_ignore_transitions
 
     def to_binary_segmentation(self, tensor):
         assert self.ignore_label != 0, "We assume 0 is background, not ignore label"
@@ -56,6 +57,18 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         else:
             return (tensor != 0).astype(self.dtype)
 
+    def include_ignore_transitions(self, affs, mask, seg):
+        ignore_seg = (seg == self.ignore_label).astype(seg.dtype)
+        ignore_transitions, invalid_mask = compute_affinities(ignore_seg, self.offsets)
+        invalid_mask = np.logical_not(invalid_mask)
+        # NOTE affinity convention returned by affogato:
+        # transitions are marked by 0
+        ignore_transitions = ignore_transitions == 0
+        ignore_transitions[invalid_mask] = 0
+        affs[ignore_transitions] = 0
+        mask[ignore_transitions] = 1
+        return affs, mask
+
     def input_function(self, tensor):
         # print("affs: in shape", tensor.shape)
         if self.ignore_label is not None:
@@ -63,6 +76,8 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
             output, mask = compute_affinities(tensor, self.offsets,
                                               ignore_label=self.ignore_label,
                                               have_ignore_label=True)
+            if self.learn_ignore_transitions:
+                output, mask = self.include_ignore_transitions(output, mask, tensor)
         else:
             output, mask = compute_affinities(tensor, self.offsets)
 
@@ -133,7 +148,8 @@ class Segmentation2MultiscaleAffinities(Transform, DtypeMapping):
                  retain_mask=False, retain_segmentation=False,
                  original_scale_offsets=None, **super_kwargs):
         super(Segmentation2MultiscaleAffinities, self).__init__(**super_kwargs)
-        assert HAVE_AFFOGATO, "Couldn't find 'affogato' module, affinity calculation is not available"
+        assert compute_multiscale_affinities is not None,\
+            "Couldn't find 'affogato' module, affinity calculation is not available"
         assert pyu.is_listlike(block_shapes)
         self.block_shapes = block_shapes
         self.dim = len(block_shapes[0])
