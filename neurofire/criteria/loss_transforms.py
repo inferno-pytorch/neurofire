@@ -76,6 +76,18 @@ class SoftmaxPrediction(Transform):
         return F.softmax(prediction, dim=1), target
 
 
+class SigmoidPrediction(Transform):
+    """
+    """
+    def __init__(self, **super_kwargs):
+        super().__init__(**super_kwargs)
+
+    def batch_function(self, tensors):
+        assert len(tensors) == 2
+        prediction, target = tensors
+        return torch.sigmoid(prediction), target
+
+
 class OrdinalToOneHot(Transform):
     """
     """
