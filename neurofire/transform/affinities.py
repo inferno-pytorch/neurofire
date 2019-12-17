@@ -107,8 +107,11 @@ class Segmentation2Affinities2or3D(Transform, DtypeMapping):
         if self.retain_mask:
             mask = mask.astype(self.dtype, copy=False)
             if self.segmentation_to_binary:
-                mask = np.concatenate(((tensor[None] != self.ignore_label).astype(self.dtype), mask),
-                                      axis=0)
+                if self.ignore_label is None:
+                    additional_mask = np.ones((1,) + tensor.shape, dtype=self.dtype)
+                else:
+                    additional_mask = (tensor[None] != self.ignore_label).astype(self.dtype)
+                mask = np.concatenate([additional_mask, mask], axis=0)
             output = np.concatenate((output, mask), axis=0)
         # print("affs: shape after mask", output.shape)
 
