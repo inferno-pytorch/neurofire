@@ -57,7 +57,7 @@ class RawVolume(io.HDF5VolumeLoader):
             transforms.add(Normalize(mean=mean, std=std))
         else:
             transforms.add(Normalize01())
-        # add noist transform if specified
+        # add noise transform if specified
         if sigma is not None:
             transforms.add(AdditiveNoise(sigma=sigma))
         # add watershed super-pixel augmentation is specified
@@ -118,23 +118,31 @@ class RawVolumeWithDefectAugmentation(RawVolume):
         defect_augmentation_config = yaml2dict(defect_augmentation_config)
         defect_augmentation_config.update({'ignore_slice_list': ignore_slice_list})
         self.defect_augmentation = DefectAugmentation.from_config(defect_augmentation_config)
+        self.cast = Cast(self.dtype)
 
     def __getitem__(self, index):
         # Casting to int would allow index to be IndexSpec objects.
         index = int(index)
-        slices = self.base_sequence[index]
-        sliced_volume = self.volume[tuple(slices)]
-        transformed = sliced_volume if self.transforms is None else\
-            self.transforms(sliced_volume)
+        slices = tuple(self.base_sequence[index])
+        vol = self.volume[slices]
 
-        # apply defect augmentation with z-offset
+        # first we need to cast to the proper dtype
+        vol = self.cast(vol)
+
+        # next apply the defect transformations
+        # NOTE the defect transformations need to be applied before the other transformations,
+        # otherwise they screw with the normalization !
         z_offset = slices[0].start
-        transformed = self.defect_augmentation(transformed, z_offset=z_offset)
+        vol = self.defect_augmentation(vol, z_offset=z_offset)
+
+        # apply the normal transformations (including normalization)
+        if self.transforms is not None:
+            vol = self.transforms(vol)
 
         if self.return_index_spec:
-            return transformed, IndexSpec(index=index, base_sequence_at_index=slices)
+            return vol, IndexSpec(index=index, base_sequence_at_index=slices)
         else:
-            return transformed
+            return vol
 
     @classmethod
     def from_config(cls, config):
