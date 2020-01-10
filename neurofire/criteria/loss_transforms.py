@@ -15,10 +15,8 @@ class DropChannels(Transform):
         super().__init__(**super_kwargs)
         assert isinstance(index, (int, list, tuple)),\
             "Only supports channels specified by single number or list / tuple"
-        # TODO implement this
-        if isinstance(index, (list, tuple)):
-            raise NotImplementedError()
-        self.slice_ = self.to_slice(index)
+        self.index = index if isinstance(index, (list, tuple)) else [index]
+        assert all(ind >= 0 for ind in self.index)
 
         if from_ == 'prediction':
             self.drop_in_prediction = True
@@ -32,23 +30,19 @@ class DropChannels(Transform):
         else:
             raise ValueError("%s option for parameter `from_` not supported" % from_)
 
-    # FIXME need slicing magic to make this work for arbitrary indices !
-    @staticmethod
-    def to_slice(index):
-        if isinstance(index, int):
-            # FIXME
-            assert index == 0
-            return np.s_[:, 1:]
-        else:
-            raise NotImplementedError()
+    def _drop_channels(self, tensor):
+        n_channels = tensor.shape[1]
+        assert all(index < n_channels for index in self.index), "%s, %s" % (str(self.index), str(n_channels))
+        keep_axis = [index for index in range(n_channels) if index not in self.index]
+        return tensor[:, keep_axis]
 
     def batch_function(self, tensors):
         assert len(tensors) == 2
         prediction, target = tensors
         if self.drop_in_prediction:
-            prediction = prediction[self.slice_]
+            prediction = self._drop_channels(prediction)
         if self.drop_in_target:
-            target = target[self.slice_]
+            target = self._drop_channels(target)
         return prediction, target
 
 
