@@ -23,7 +23,7 @@ class MultiScaleLoss(nn.Module):
         self.fill_missing_targets = fill_missing_targets
 
     def forward(self, predictions, targets):
-        assert isinstance(predictions, (list, tuple))
+        assert isinstance(predictions, (list, tuple)), type(predictions)
         assert len(predictions) == self.n_scales, "%i, %i" % (len(predictions), self.n_scales)
         same_len = len(predictions) == len(targets)
 
@@ -31,7 +31,8 @@ class MultiScaleLoss(nn.Module):
         # that produces predictions at the original scale. In this case, we can just fill up the missing
         # targets with the 0-level target. (only if fill_missing_targets == True)
         if not same_len:
-            assert self.fill_missing_targets and len(predictions) > len(targets)
+            assert self.fill_missing_targets and len(predictions) > len(targets), "%i, %i" % (len(predictions),
+                                                                                              len(targets))
             n_missing = len(predictions) - len(targets)
             targets = n_missing * [targets[0]] + targets
 
