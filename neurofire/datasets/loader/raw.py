@@ -46,6 +46,14 @@ class RawVolume(io.HDF5VolumeLoader):
         assert isinstance(dtype, str)
         self.dtype = dtype
         # Make transforms
+        if name is not None:
+            mean = mean[name] if isinstance(mean, dict) else mean
+            std = std[name] if isinstance(std, dict) else std
+            sigma = sigma[name] if isinstance(sigma, dict) else sigma
+            zero_mean_unit_variance = zero_mean_unit_variance[name] if isinstance(zero_mean_unit_variance, dict)\
+                else zero_mean_unit_variance
+            p_augment_ws = p_augment_ws[name] if isinstance(p_augment_ws, dict) else p_augment_ws
+
         self.transforms = self.get_transforms(mean, std, sigma,
                                               p_augment_ws, zero_mean_unit_variance)
 

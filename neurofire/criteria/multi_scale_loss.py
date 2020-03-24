@@ -8,7 +8,7 @@ class MultiScaleLoss(nn.Module):
     # Steffen's arguments `offsets` and `scale_facter` were never used
     def __init__(self, loss, n_scales=4, scale_weights=None, fill_missing_targets=False):
         super(MultiScaleLoss, self).__init__()
-        assert isinstance(loss, LossWrapper)
+        assert isinstance(loss, (LossWrapper, nn.Module))
         self.loss = loss
         self.n_scales = n_scales
         # per default, we weight each scale's loss with 1 / 4**scale_level i. (1, 1/4, 1/16, 1/128, ...)
