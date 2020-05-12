@@ -1,5 +1,7 @@
 from .cantor.cantor import Cantor
 
+from .dense_unet import DUNet2D, DUNet3D, DUNet2p5D
+
 from .unet.unet_2d import UNet2D
 from .unet.unet_2d_5layers import UNet2D5l
 from .unet.unet_2d_5l_dilated import UNetDilated2D5l
