@@ -125,6 +125,10 @@ class ResNet3D(nn.Module):
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None, norm_groups=None):
         super(ResNet3D, self).__init__()
+        if block == "BasicBlock":
+            block = BasicBlock
+        elif block == "Bottleneck":
+            block = Bottleneck
         if norm_layer is None:
             norm_layer = nn.BatchNorm3d
         self._norm_layer = norm_layer
