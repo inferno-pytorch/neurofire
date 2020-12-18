@@ -1,5 +1,3 @@
-import numpy as np
-
 from inferno.utils.io_utils import yaml2dict
 from inferno.io.volumetric import HDF5VolumeLoader
 from inferno.io.core import ZipReject
@@ -16,11 +14,12 @@ class RejectNonZeroThreshold:
             pixels smaller than this value will be rejected. Hence, the larger the
             threshold, the more batches will be rejected.
     """
-    def __init__(self, threshold):
+    def __init__(self, threshold, background_value=0):
         self.threshold = threshold
+        self.background_value = background_value
 
     def __call__(self, fetched):
-        return (np.count_nonzero(fetched) / fetched.size) < self.threshold
+        return ((fetched != self.background_value).sum() / float(fetched.size)) < self.threshold
 
 
 class ArtifactVolume(HDF5VolumeLoader):
